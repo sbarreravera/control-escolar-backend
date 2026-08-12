@@ -14,4 +14,6 @@ public interface CredentialRepository
     boolean existsByStudent_IdAndActiveTrue(Long studentId);
 
     Optional<Credential> findByStudent_IdAndActiveTrue(Long studentId);
+
+    Optional<Credential> findByQrTokenAndActiveTrue(String qrToken);
 }
