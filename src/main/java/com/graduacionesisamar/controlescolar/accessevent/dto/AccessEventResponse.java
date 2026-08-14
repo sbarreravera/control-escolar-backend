@@ -18,6 +18,7 @@ public record AccessEventResponse(
         CaptureMethod captureMethod,
         OffsetDateTime occurredAt,
         String deviceName,
-        String notes
+        String notes,
+        Integer notificationsQueued
 ) {
 }

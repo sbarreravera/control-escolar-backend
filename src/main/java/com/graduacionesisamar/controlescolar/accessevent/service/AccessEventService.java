@@ -13,6 +13,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import com.graduacionesisamar.controlescolar.notification.service.NotificationLogService;
+
 
 import java.time.OffsetDateTime;
 
@@ -26,10 +28,12 @@ public class AccessEventService {
 
     private final AccessEventRepository accessEventRepository;
     private final CredentialRepository credentialRepository;
+    private final NotificationLogService notificationLogService;
 
     /**
      * Registers an entry or exit using an active QR credential.
      */
+
     public AccessEventResponse scan(ScanAccessEventRequest request) {
         validateCaptureMethod(request.captureMethod());
 
@@ -40,7 +44,12 @@ public class AccessEventService {
         validateActiveStudent(student);
 
         AccessEvent event = buildEvent(request, credential, student);
-        return toResponse(accessEventRepository.save(event));
+        AccessEvent savedEvent = accessEventRepository.save(event);
+
+        int notificationsQueued =
+                notificationLogService.queueForEvent(savedEvent);
+
+        return toResponse(savedEvent, notificationsQueued);
     }
 
     private Credential findCredential(String qrToken) {
@@ -104,7 +113,10 @@ public class AccessEventService {
         return value.trim();
     }
 
-    private AccessEventResponse toResponse(AccessEvent event) {
+    private AccessEventResponse toResponse(
+            AccessEvent event,
+            int notificationsQueued
+    ) {
         Student student = event.getStudent();
 
         return new AccessEventResponse(
@@ -117,7 +129,8 @@ public class AccessEventService {
                 event.getCaptureMethod(),
                 event.getOccurredAt(),
                 event.getDeviceName(),
-                event.getNotes()
+                event.getNotes(),
+                notificationsQueued
         );
     }
 
