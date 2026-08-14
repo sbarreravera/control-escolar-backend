@@ -8,6 +8,7 @@ import com.graduacionesisamar.controlescolar.accessevent.entity.CaptureMethod;
 import com.graduacionesisamar.controlescolar.accessevent.repository.AccessEventRepository;
 import com.graduacionesisamar.controlescolar.credential.entity.Credential;
 import com.graduacionesisamar.controlescolar.credential.repository.CredentialRepository;
+import com.graduacionesisamar.controlescolar.notification.service.NotificationLogService;
 import com.graduacionesisamar.controlescolar.student.entity.Student;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,6 +18,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
+
 
 import java.time.OffsetDateTime;
 import java.util.Optional;
@@ -46,6 +48,9 @@ class AccessEventServiceTest {
 
     @InjectMocks
     private AccessEventService accessEventService;
+
+    @Mock
+    private NotificationLogService notificationLogService;
 
     private Student student;
     private Credential credential;
@@ -78,6 +83,7 @@ class AccessEventServiceTest {
         assertEquals(CaptureMethod.QR_CAMERA, response.captureMethod());
         assertEquals("Entrada principal", response.deviceName());
         assertNotNull(response.occurredAt());
+        assertEquals(1, response.notificationsQueued());
     }
 
     @Test
@@ -214,12 +220,15 @@ class AccessEventServiceTest {
     }
 
     private void stubSavedEvent(Long eventId) {
-        when(accessEventRepository.save(any(AccessEvent.class)))
-                .thenAnswer(invocation -> {
-                    AccessEvent event = invocation.getArgument(0);
-                    event.setId(eventId);
-                    event.beforeInsert();
-                    return event;
-                });
+    when(notificationLogService.queueForEvent(any(AccessEvent.class)))
+            .thenReturn(1);
+
+    when(accessEventRepository.save(any(AccessEvent.class)))
+            .thenAnswer(invocation -> {
+                AccessEvent event = invocation.getArgument(0);
+                event.setId(eventId);
+                event.beforeInsert();
+                return event;
+            });
     }
 }
