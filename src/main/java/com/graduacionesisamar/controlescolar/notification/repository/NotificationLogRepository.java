@@ -1,6 +1,7 @@
 package com.graduacionesisamar.controlescolar.notification.repository;
 
 import com.graduacionesisamar.controlescolar.notification.entity.NotificationLog;
+import com.graduacionesisamar.controlescolar.notification.entity.NotificationStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -13,5 +14,9 @@ public interface NotificationLogRepository
 
     List<NotificationLog> findAllByAccessEvent_IdOrderByCreatedAtAsc(
             Long accessEventId
+    );
+
+    List<NotificationLog> findTop50ByStatusOrderByCreatedAtAsc(
+            NotificationStatus status
     );
 }
