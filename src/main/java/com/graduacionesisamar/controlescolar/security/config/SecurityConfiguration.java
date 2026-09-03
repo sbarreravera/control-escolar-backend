@@ -35,6 +35,7 @@ public class SecurityConfiguration {
                                 "/api/v1/auth/login",
                                 "/error"
                         ).permitAll()
+                        .requestMatchers("/api/v1/schools/**").hasRole("SUPER_ADMIN")
                         .anyRequest().authenticated()
                 )
                 .formLogin(form -> form
