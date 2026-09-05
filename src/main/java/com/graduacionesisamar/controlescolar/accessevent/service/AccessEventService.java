@@ -7,20 +7,17 @@ import com.graduacionesisamar.controlescolar.accessevent.entity.CaptureMethod;
 import com.graduacionesisamar.controlescolar.accessevent.repository.AccessEventRepository;
 import com.graduacionesisamar.controlescolar.credential.entity.Credential;
 import com.graduacionesisamar.controlescolar.credential.repository.CredentialRepository;
+import com.graduacionesisamar.controlescolar.notification.service.NotificationLogService;
+import com.graduacionesisamar.controlescolar.security.service.SchoolAccessService;
 import com.graduacionesisamar.controlescolar.student.entity.Student;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-import com.graduacionesisamar.controlescolar.notification.service.NotificationLogService;
-
 
 import java.time.OffsetDateTime;
 
-/**
- * Handles student entry and exit events.
- */
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -29,16 +26,17 @@ public class AccessEventService {
     private final AccessEventRepository accessEventRepository;
     private final CredentialRepository credentialRepository;
     private final NotificationLogService notificationLogService;
-
-    /**
-     * Registers an entry or exit using an active QR credential.
-     */
+    private final SchoolAccessService schoolAccessService;
 
     public AccessEventResponse scan(ScanAccessEventRequest request) {
         validateCaptureMethod(request.captureMethod());
 
         Credential credential = findCredential(request.qrToken().trim());
         Student student = credential.getStudent();
+
+        schoolAccessService.requireAccessToSchool(
+                student.getSchool().getId()
+        );
 
         validateCredentialExpiration(credential);
         validateActiveStudent(student);

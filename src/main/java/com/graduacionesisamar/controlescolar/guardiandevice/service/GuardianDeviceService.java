@@ -6,6 +6,7 @@ import com.graduacionesisamar.controlescolar.guardiandevice.dto.GuardianDeviceRe
 import com.graduacionesisamar.controlescolar.guardiandevice.dto.RegisterGuardianDeviceRequest;
 import com.graduacionesisamar.controlescolar.guardiandevice.entity.GuardianDevice;
 import com.graduacionesisamar.controlescolar.guardiandevice.repository.GuardianDeviceRepository;
+import com.graduacionesisamar.controlescolar.security.service.SchoolAccessService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -15,9 +16,6 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 import java.util.Objects;
 
-/**
- * Handles registration and management of guardian devices.
- */
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -25,16 +23,14 @@ public class GuardianDeviceService {
 
     private final GuardianDeviceRepository guardianDeviceRepository;
     private final GuardianRepository guardianRepository;
+    private final SchoolAccessService schoolAccessService;
 
-    /**
-     * Registers a device or reactivates an existing device
-     * belonging to the same guardian.
-     */
     public GuardianDeviceResponse register(
             Long guardianId,
             RegisterGuardianDeviceRequest request
     ) {
         Guardian guardian = findGuardian(guardianId);
+        requireGuardianSchoolAccess(guardian);
 
         if (!Boolean.TRUE.equals(guardian.getActive())) {
             throw new ResponseStatusException(
@@ -64,14 +60,12 @@ public class GuardianDeviceService {
         return toResponse(savedDevice);
     }
 
-    /**
-     * Returns the active devices registered for a guardian.
-     */
     @Transactional(readOnly = true)
     public List<GuardianDeviceResponse> findActiveByGuardian(
             Long guardianId
     ) {
-        findGuardian(guardianId);
+        Guardian guardian = findGuardian(guardianId);
+        requireGuardianSchoolAccess(guardian);
 
         return guardianDeviceRepository
                 .findAllByGuardian_IdAndActiveTrueOrderByRegisteredAtDesc(
@@ -82,14 +76,12 @@ public class GuardianDeviceService {
                 .toList();
     }
 
-    /**
-     * Deactivates a device belonging to a guardian.
-     */
     public GuardianDeviceResponse deactivate(
             Long guardianId,
             Long deviceId
     ) {
-        findGuardian(guardianId);
+        Guardian guardian = findGuardian(guardianId);
+        requireGuardianSchoolAccess(guardian);
 
         GuardianDevice device = guardianDeviceRepository
                 .findByIdAndGuardian_Id(deviceId, guardianId)
@@ -120,9 +112,7 @@ public class GuardianDeviceService {
             );
         }
 
-        device.setDeviceName(
-                trimNullable(request.deviceName())
-        );
+        device.setDeviceName(trimNullable(request.deviceName()));
         device.setActive(true);
 
         return device;
@@ -147,6 +137,12 @@ public class GuardianDeviceService {
                         HttpStatus.NOT_FOUND,
                         "Guardian not found"
                 ));
+    }
+
+    private void requireGuardianSchoolAccess(Guardian guardian) {
+        schoolAccessService.requireAccessToSchool(
+                guardian.getSchool().getId()
+        );
     }
 
     private String trimNullable(String value) {

@@ -27,6 +27,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.graduacionesisamar.controlescolar.school.entity.School;
+import com.graduacionesisamar.controlescolar.security.service.SchoolAccessService;
+
 /**
  * Verifies the business rules for student QR credentials.
  */
@@ -41,6 +44,9 @@ class CredentialServiceTest {
     @Mock
     private StudentRepository studentRepository;
 
+    @Mock
+    private SchoolAccessService schoolAccessService;
+
     @InjectMocks
     private CredentialService credentialService;
 
@@ -48,10 +54,14 @@ class CredentialServiceTest {
 
     @BeforeEach
     void setUp() {
+        School school = new School();
+        school.setId(1L);
+
         student = new Student();
         student.setId(STUDENT_ID);
+        student.setSchool(school);
         student.setActive(true);
-    }
+}
 
     @Test
     void createReturnsActiveCredentialWithSecureToken() {

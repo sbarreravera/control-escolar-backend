@@ -2,6 +2,7 @@ package com.graduacionesisamar.controlescolar.student.service;
 
 import com.graduacionesisamar.controlescolar.school.entity.School;
 import com.graduacionesisamar.controlescolar.school.repository.SchoolRepository;
+import com.graduacionesisamar.controlescolar.security.service.SchoolAccessService;
 import com.graduacionesisamar.controlescolar.student.dto.CreateStudentRequest;
 import com.graduacionesisamar.controlescolar.student.dto.StudentResponse;
 import com.graduacionesisamar.controlescolar.student.entity.Student;
@@ -23,11 +24,13 @@ public class StudentService {
 
     private final StudentRepository studentRepository;
     private final SchoolRepository schoolRepository;
+    private final SchoolAccessService schoolAccessService;
 
     /**
      * Creates a new student.
      */
     public StudentResponse create(CreateStudentRequest request) {
+        schoolAccessService.requireAccessToSchool(request.schoolId());
         School school = findSchool(request.schoolId());
         String enrollment = request.enrollmentNumber().trim().toUpperCase();
 
@@ -42,6 +45,7 @@ public class StudentService {
      */
     @Transactional(readOnly = true)
     public List<StudentResponse> findAllBySchool(Long schoolId) {
+        schoolAccessService.requireAccessToSchool(schoolId);
         findSchool(schoolId);
 
         return studentRepository
@@ -61,6 +65,10 @@ public class StudentService {
                         HttpStatus.NOT_FOUND,
                         "Student not found"
                 ));
+
+        schoolAccessService.requireAccessToSchool(
+                student.getSchool().getId()
+        );
 
         return toResponse(student);
     }

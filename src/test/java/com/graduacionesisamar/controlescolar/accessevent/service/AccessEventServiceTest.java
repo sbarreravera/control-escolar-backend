@@ -9,6 +9,8 @@ import com.graduacionesisamar.controlescolar.accessevent.repository.AccessEventR
 import com.graduacionesisamar.controlescolar.credential.entity.Credential;
 import com.graduacionesisamar.controlescolar.credential.repository.CredentialRepository;
 import com.graduacionesisamar.controlescolar.notification.service.NotificationLogService;
+import com.graduacionesisamar.controlescolar.school.entity.School;
+import com.graduacionesisamar.controlescolar.security.service.SchoolAccessService;
 import com.graduacionesisamar.controlescolar.student.entity.Student;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -18,7 +20,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
-
 
 import java.time.OffsetDateTime;
 import java.util.Optional;
@@ -32,9 +33,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-/**
- * Verifies the business rules for student access events.
- */
 @ExtendWith(MockitoExtension.class)
 class AccessEventServiceTest {
 
@@ -46,11 +44,14 @@ class AccessEventServiceTest {
     @Mock
     private CredentialRepository credentialRepository;
 
-    @InjectMocks
-    private AccessEventService accessEventService;
-
     @Mock
     private NotificationLogService notificationLogService;
+
+    @Mock
+    private SchoolAccessService schoolAccessService;
+
+    @InjectMocks
+    private AccessEventService accessEventService;
 
     private Student student;
     private Credential credential;
@@ -70,6 +71,7 @@ class AccessEventServiceTest {
 
         when(credentialRepository.findByQrTokenAndActiveTrue(QR_TOKEN))
                 .thenReturn(Optional.of(credential));
+
         stubSavedEvent(100L);
 
         AccessEventResponse response = accessEventService.scan(request);
@@ -98,6 +100,7 @@ class AccessEventServiceTest {
 
         when(credentialRepository.findByQrTokenAndActiveTrue(QR_TOKEN))
                 .thenReturn(Optional.of(credential));
+
         stubSavedEvent(101L);
 
         AccessEventResponse response = accessEventService.scan(request);
@@ -146,7 +149,9 @@ class AccessEventServiceTest {
 
     @Test
     void scanRejectsExpiredCredential() {
-        credential.setExpiresAt(OffsetDateTime.now().minusMinutes(1));
+        credential.setExpiresAt(
+                OffsetDateTime.now().minusMinutes(1)
+        );
 
         ScanAccessEventRequest request = buildRequest(
                 AccessEventType.ENTRY,
@@ -187,8 +192,12 @@ class AccessEventServiceTest {
     }
 
     private Student buildStudent() {
+        School school = new School();
+        school.setId(1L);
+
         Student value = new Student();
         value.setId(1L);
+        value.setSchool(school);
         value.setEnrollmentNumber("MAT-001");
         value.setFirstName("Samuel");
         value.setLastName("Barrera Vera");
@@ -220,15 +229,16 @@ class AccessEventServiceTest {
     }
 
     private void stubSavedEvent(Long eventId) {
-    when(notificationLogService.queueForEvent(any(AccessEvent.class)))
-            .thenReturn(1);
+        when(notificationLogService.queueForEvent(
+                any(AccessEvent.class)
+        )).thenReturn(1);
 
-    when(accessEventRepository.save(any(AccessEvent.class)))
-            .thenAnswer(invocation -> {
-                AccessEvent event = invocation.getArgument(0);
-                event.setId(eventId);
-                event.beforeInsert();
-                return event;
-            });
+        when(accessEventRepository.save(any(AccessEvent.class)))
+                .thenAnswer(invocation -> {
+                    AccessEvent event = invocation.getArgument(0);
+                    event.setId(eventId);
+                    event.beforeInsert();
+                    return event;
+                });
     }
 }

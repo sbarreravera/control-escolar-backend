@@ -6,6 +6,7 @@ import com.graduacionesisamar.controlescolar.guardian.entity.Guardian;
 import com.graduacionesisamar.controlescolar.guardian.repository.GuardianRepository;
 import com.graduacionesisamar.controlescolar.school.entity.School;
 import com.graduacionesisamar.controlescolar.school.repository.SchoolRepository;
+import com.graduacionesisamar.controlescolar.security.service.SchoolAccessService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -24,11 +25,13 @@ public class GuardianService {
 
     private final GuardianRepository guardianRepository;
     private final SchoolRepository schoolRepository;
+    private final SchoolAccessService schoolAccessService;
 
     /**
      * Creates a new guardian.
      */
     public GuardianResponse create(CreateGuardianRequest request) {
+        schoolAccessService.requireAccessToSchool(request.schoolId());
         School school = findSchool(request.schoolId());
 
         Guardian guardian = buildGuardian(request, school);
@@ -42,6 +45,7 @@ public class GuardianService {
      */
     @Transactional(readOnly = true)
     public List<GuardianResponse> findAllBySchool(Long schoolId) {
+        schoolAccessService.requireAccessToSchool(schoolId);
         findSchool(schoolId);
 
         return guardianRepository
@@ -61,6 +65,10 @@ public class GuardianService {
                         HttpStatus.NOT_FOUND,
                         "Guardian not found"
                 ));
+
+        schoolAccessService.requireAccessToSchool(
+                guardian.getSchool().getId()
+        );
 
         return toResponse(guardian);
     }

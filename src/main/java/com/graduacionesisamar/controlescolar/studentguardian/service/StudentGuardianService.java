@@ -2,6 +2,7 @@ package com.graduacionesisamar.controlescolar.studentguardian.service;
 
 import com.graduacionesisamar.controlescolar.guardian.entity.Guardian;
 import com.graduacionesisamar.controlescolar.guardian.repository.GuardianRepository;
+import com.graduacionesisamar.controlescolar.security.service.SchoolAccessService;
 import com.graduacionesisamar.controlescolar.student.entity.Student;
 import com.graduacionesisamar.controlescolar.student.repository.StudentRepository;
 import com.graduacionesisamar.controlescolar.studentguardian.dto.CreateStudentGuardianRequest;
@@ -17,9 +18,6 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
-/**
- * Handles student-guardian relationship operations.
- */
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -28,15 +26,20 @@ public class StudentGuardianService {
     private final StudentGuardianRepository studentGuardianRepository;
     private final StudentRepository studentRepository;
     private final GuardianRepository guardianRepository;
+    private final SchoolAccessService schoolAccessService;
 
-    /**
-     * Links a guardian to a student.
-     */
     public StudentGuardianResponse create(
             CreateStudentGuardianRequest request
     ) {
         Student student = findStudent(request.studentId());
+        schoolAccessService.requireAccessToSchool(
+                student.getSchool().getId()
+        );
+
         Guardian guardian = findGuardian(request.guardianId());
+        schoolAccessService.requireAccessToSchool(
+                guardian.getSchool().getId()
+        );
 
         validateRelationship(request, student, guardian);
 
@@ -49,12 +52,13 @@ public class StudentGuardianService {
         return toResponse(studentGuardianRepository.save(association));
     }
 
-    /**
-     * Returns all guardians associated with a student.
-     */
     @Transactional(readOnly = true)
     public List<StudentGuardianResponse> findAllByStudent(Long studentId) {
-        findStudent(studentId);
+        Student student = findStudent(studentId);
+
+        schoolAccessService.requireAccessToSchool(
+                student.getSchool().getId()
+        );
 
         return studentGuardianRepository
                 .findAllByStudent_IdOrderByPrimaryContactDescGuardian_FullNameAsc(
@@ -65,9 +69,6 @@ public class StudentGuardianService {
                 .toList();
     }
 
-    /**
-     * Removes a relationship between a student and a guardian.
-     */
     public void delete(Long studentId, Long guardianId) {
         StudentGuardianId id = new StudentGuardianId(
                 studentId,
@@ -80,6 +81,10 @@ public class StudentGuardianService {
                         HttpStatus.NOT_FOUND,
                         "Student-guardian relationship not found"
                 ));
+
+        schoolAccessService.requireAccessToSchool(
+                association.getStudent().getSchool().getId()
+        );
 
         studentGuardianRepository.delete(association);
     }

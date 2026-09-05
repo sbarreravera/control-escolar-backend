@@ -3,6 +3,7 @@ package com.graduacionesisamar.controlescolar.credential.service;
 import com.graduacionesisamar.controlescolar.credential.dto.CredentialResponse;
 import com.graduacionesisamar.controlescolar.credential.entity.Credential;
 import com.graduacionesisamar.controlescolar.credential.repository.CredentialRepository;
+import com.graduacionesisamar.controlescolar.security.service.SchoolAccessService;
 import com.graduacionesisamar.controlescolar.student.entity.Student;
 import com.graduacionesisamar.controlescolar.student.repository.StudentRepository;
 import lombok.RequiredArgsConstructor;
@@ -14,9 +15,6 @@ import org.springframework.web.server.ResponseStatusException;
 import java.security.SecureRandom;
 import java.util.Base64;
 
-/**
- * Handles QR credential operations.
- */
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -27,12 +25,11 @@ public class CredentialService {
 
     private final CredentialRepository credentialRepository;
     private final StudentRepository studentRepository;
+    private final SchoolAccessService schoolAccessService;
 
-    /**
-     * Creates an active QR credential for a student.
-     */
     public CredentialResponse create(Long studentId) {
         Student student = findStudentForUpdate(studentId);
+        requireStudentSchoolAccess(student);
 
         validateActiveStudent(student);
         validateNoActiveCredential(studentId);
@@ -40,12 +37,10 @@ public class CredentialService {
         return saveCredential(student);
     }
 
-    /**
-     * Returns the active credential assigned to a student.
-     */
     @Transactional(readOnly = true)
     public CredentialResponse findActive(Long studentId) {
-        validateStudentExists(studentId);
+        Student student = findStudent(studentId);
+        requireStudentSchoolAccess(student);
 
         Credential credential = credentialRepository
                 .findByStudent_IdAndActiveTrue(studentId)
@@ -57,11 +52,9 @@ public class CredentialService {
         return toResponse(credential);
     }
 
-    /**
-     * Deactivates a credential.
-     */
     public void deactivate(Long credentialId) {
         Credential credential = findCredential(credentialId);
+        requireStudentSchoolAccess(credential.getStudent());
 
         if (!Boolean.TRUE.equals(credential.getActive())) {
             throw new ResponseStatusException(
@@ -73,11 +66,9 @@ public class CredentialService {
         credential.deactivate();
     }
 
-    /**
-     * Replaces the active credential assigned to a student.
-     */
     public CredentialResponse regenerate(Long studentId) {
         Student student = findStudentForUpdate(studentId);
+        requireStudentSchoolAccess(student);
 
         validateActiveStudent(student);
         deactivateActiveCredential(studentId);
@@ -102,13 +93,18 @@ public class CredentialService {
                 ));
     }
 
-    private void validateStudentExists(Long studentId) {
-        if (!studentRepository.existsById(studentId)) {
-            throw new ResponseStatusException(
-                    HttpStatus.NOT_FOUND,
-                    "Student not found"
-            );
-        }
+    private Student findStudent(Long studentId) {
+        return studentRepository.findById(studentId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Student not found"
+                ));
+    }
+
+    private void requireStudentSchoolAccess(Student student) {
+        schoolAccessService.requireAccessToSchool(
+                student.getSchool().getId()
+        );
     }
 
     private void validateActiveStudent(Student student) {
