@@ -32,32 +32,18 @@ public class GuardianDeviceService {
         Guardian guardian = findGuardian(guardianId);
         requireGuardianSchoolAccess(guardian);
 
-        if (!Boolean.TRUE.equals(guardian.getActive())) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Inactive guardian cannot register devices"
-            );
-        }
+        return registerDevice(guardian, request);
+    }
 
-        String fcmToken = request.fcmToken().trim();
-
-        GuardianDevice device = guardianDeviceRepository
-                .findByFcmToken(fcmToken)
-                .map(existingDevice -> updateExistingDevice(
-                        existingDevice,
-                        guardian,
-                        request
-                ))
-                .orElseGet(() -> buildDevice(
-                        guardian,
-                        fcmToken,
-                        request.deviceName()
-                ));
-
-        GuardianDevice savedDevice =
-                guardianDeviceRepository.save(device);
-
-        return toResponse(savedDevice);
+    /**
+     * Registers a device after its temporary enrollment
+     * invitation has been validated.
+     */
+    public GuardianDeviceResponse registerFromEnrollment(
+            Guardian guardian,
+            RegisterGuardianDeviceRequest request
+    ) {
+        return registerDevice(guardian, request);
     }
 
     @Transactional(readOnly = true)
@@ -95,6 +81,38 @@ public class GuardianDeviceService {
         return toResponse(
                 guardianDeviceRepository.save(device)
         );
+    }
+
+    private GuardianDeviceResponse registerDevice(
+            Guardian guardian,
+            RegisterGuardianDeviceRequest request
+    ) {
+        if (!Boolean.TRUE.equals(guardian.getActive())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Inactive guardian cannot register devices"
+            );
+        }
+
+        String fcmToken = request.fcmToken().trim();
+
+        GuardianDevice device = guardianDeviceRepository
+                .findByFcmToken(fcmToken)
+                .map(existingDevice -> updateExistingDevice(
+                        existingDevice,
+                        guardian,
+                        request
+                ))
+                .orElseGet(() -> buildDevice(
+                        guardian,
+                        fcmToken,
+                        request.deviceName()
+                ));
+
+        GuardianDevice savedDevice =
+                guardianDeviceRepository.save(device);
+
+        return toResponse(savedDevice);
     }
 
     private GuardianDevice updateExistingDevice(
@@ -153,9 +171,9 @@ public class GuardianDeviceService {
         return value.trim();
     }
 
-    private GuardianDeviceResponse toResponse(
-            GuardianDevice device
-    ) {
+        private GuardianDeviceResponse toResponse(
+                GuardianDevice device
+        ) {
         return new GuardianDeviceResponse(
                 device.getId(),
                 device.getGuardian().getId(),
@@ -164,5 +182,5 @@ public class GuardianDeviceService {
                 device.getRegisteredAt(),
                 device.getLastUsedAt()
         );
-    }
+     }
 }
