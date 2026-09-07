@@ -3,6 +3,8 @@ package com.graduacionesisamar.controlescolar.student.service;
 import com.graduacionesisamar.controlescolar.school.entity.School;
 import com.graduacionesisamar.controlescolar.school.repository.SchoolRepository;
 import com.graduacionesisamar.controlescolar.security.service.SchoolAccessService;
+import com.graduacionesisamar.controlescolar.schoolgroup.entity.SchoolGroup;
+import com.graduacionesisamar.controlescolar.schoolgroup.repository.SchoolGroupRepository;
 import com.graduacionesisamar.controlescolar.student.dto.CreateStudentRequest;
 import com.graduacionesisamar.controlescolar.student.dto.StudentResponse;
 import com.graduacionesisamar.controlescolar.student.entity.Student;
@@ -14,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Handles business operations related to students.
@@ -24,19 +27,30 @@ public class StudentService {
 
     private final StudentRepository studentRepository;
     private final SchoolRepository schoolRepository;
+    private final SchoolGroupRepository schoolGroupRepository;
     private final SchoolAccessService schoolAccessService;
 
     /**
      * Creates a new student.
      */
+    @Transactional
     public StudentResponse create(CreateStudentRequest request) {
         schoolAccessService.requireAccessToSchool(request.schoolId());
         School school = findSchool(request.schoolId());
+        SchoolGroup schoolGroup = resolveSchoolGroup(
+                request.schoolGroupId(),
+                request.schoolId()
+        );
         String enrollment = request.enrollmentNumber().trim().toUpperCase();
 
         validateEnrollment(request.schoolId(), enrollment);
 
-        Student student = buildStudent(request, school, enrollment);
+        Student student = buildStudent(
+                request,
+                school,
+                schoolGroup,
+                enrollment
+        );
         return toResponse(studentRepository.save(student));
     }
 
@@ -99,6 +113,7 @@ public class StudentService {
     private Student buildStudent(
             CreateStudentRequest request,
             School school,
+            SchoolGroup schoolGroup,
             String enrollment
     ) {
         Student student = new Student();
@@ -106,9 +121,51 @@ public class StudentService {
         student.setEnrollmentNumber(enrollment);
         student.setFirstName(request.firstName().trim());
         student.setLastName(request.lastName().trim());
-        student.setGradeName(trimNullable(request.gradeName()));
-        student.setGroupName(trimNullable(request.groupName()));
+        student.setSchoolGroup(schoolGroup);
+
+        if (schoolGroup == null) {
+            student.setGradeName(trimNullable(request.gradeName()));
+            student.setGroupName(trimNullable(request.groupName()));
+        } else {
+            student.setGradeName(schoolGroup.getGradeName());
+            student.setGroupName(schoolGroup.getGroupName());
+        }
+
         return student;
+    }
+
+    private SchoolGroup resolveSchoolGroup(
+            Long schoolGroupId,
+            Long schoolId
+    ) {
+        if (schoolGroupId == null) {
+            return null;
+        }
+
+        SchoolGroup group = schoolGroupRepository.findById(schoolGroupId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "School group not found"
+                ));
+
+        Long groupSchoolId = group.getAcademicCycle().getSchool().getId();
+
+        if (!Objects.equals(groupSchoolId, schoolId)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "School group does not belong to the selected school"
+            );
+        }
+
+        if (!Boolean.TRUE.equals(group.getActive())
+                || !Boolean.TRUE.equals(group.getAcademicCycle().getActive())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "School group is not active"
+            );
+        }
+
+        return group;
     }
 
     private String trimNullable(String value) {
@@ -116,6 +173,8 @@ public class StudentService {
     }
 
     private StudentResponse toResponse(Student student) {
+        SchoolGroup group = student.getSchoolGroup();
+
         return new StudentResponse(
                 student.getId(),
                 student.getSchool().getId(),
@@ -125,6 +184,9 @@ public class StudentService {
                 student.getLastName(),
                 student.getGradeName(),
                 student.getGroupName(),
+                group == null ? null : group.getId(),
+                group == null ? null : group.getAcademicCycle().getId(),
+                group == null ? null : group.getAcademicCycle().getName(),
                 student.getActive(),
                 student.getCreatedAt(),
                 student.getUpdatedAt()

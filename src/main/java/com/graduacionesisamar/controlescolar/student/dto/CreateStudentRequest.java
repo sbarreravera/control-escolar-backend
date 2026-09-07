@@ -28,6 +28,8 @@ public record CreateStudentRequest(
         String gradeName,
 
         @Size(max = 50)
-        String groupName
+        String groupName,
+
+        Long schoolGroupId
 ) {
 }

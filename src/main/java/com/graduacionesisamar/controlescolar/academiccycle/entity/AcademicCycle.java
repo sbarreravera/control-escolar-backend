@@ -1,23 +1,23 @@
-package com.graduacionesisamar.controlescolar.student.entity;
+package com.graduacionesisamar.controlescolar.academiccycle.entity;
 
 import com.graduacionesisamar.controlescolar.school.entity.School;
-import com.graduacionesisamar.controlescolar.schoolgroup.entity.SchoolGroup;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 
 /**
- * Represents a student registered in a school.
+ * Represents an academic cycle belonging to a school.
  */
 @Getter
 @Setter
 @NoArgsConstructor
 @Entity
-@Table(name = "students")
-public class Student {
+@Table(name = "academic_cycles")
+public class AcademicCycle {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -27,24 +27,14 @@ public class Student {
     @JoinColumn(name = "school_id", nullable = false)
     private School school;
 
-    @Column(name = "enrollment_number", nullable = false, length = 50)
-    private String enrollmentNumber;
+    @Column(nullable = false, length = 50)
+    private String name;
 
-    @Column(name = "first_name", nullable = false, length = 100)
-    private String firstName;
+    @Column(name = "start_date", nullable = false)
+    private LocalDate startDate;
 
-    @Column(name = "last_name", nullable = false, length = 150)
-    private String lastName;
-
-    @Column(name = "grade_name", length = 50)
-    private String gradeName;
-
-    @Column(name = "group_name", length = 50)
-    private String groupName;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "school_group_id")
-    private SchoolGroup schoolGroup;
+    @Column(name = "end_date", nullable = false)
+    private LocalDate endDate;
 
     @Column(nullable = false)
     private Boolean active = true;
@@ -55,9 +45,6 @@ public class Student {
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
 
-    /**
-     * Sets initial timestamps before inserting the student.
-     */
     @PrePersist
     public void beforeInsert() {
         OffsetDateTime now = OffsetDateTime.now();
@@ -65,9 +52,6 @@ public class Student {
         updatedAt = now;
     }
 
-    /**
-     * Updates the modification timestamp.
-     */
     @PreUpdate
     public void beforeUpdate() {
         updatedAt = OffsetDateTime.now();
