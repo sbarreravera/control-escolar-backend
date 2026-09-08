@@ -16,6 +16,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -104,7 +105,8 @@ class NotificationLogServiceTest {
         );
 
         assertEquals(
-                "Samuel Barrera Vera registró una entrada.",
+                "Samuel Barrera Vera registró una entrada. "
+                        + "Evento: 05/09/2026 a las 19:22.",
                 firstNotification.getMessage()
         );
 
@@ -166,7 +168,8 @@ class NotificationLogServiceTest {
         );
 
         assertEquals(
-                "Samuel Barrera Vera registró una salida.",
+                "Samuel Barrera Vera registró una salida. "
+                        + "Evento: 05/09/2026 a las 19:22.",
                 notification.getMessage()
         );
     }
@@ -235,6 +238,11 @@ class NotificationLogServiceTest {
         event.setId(id);
         event.setStudent(student);
         event.setEventType(eventType);
+        event.setOccurredAt(
+                OffsetDateTime.parse(
+                        "2026-09-05T19:22:43-06:00"
+                )
+        );
         return event;
     }
 

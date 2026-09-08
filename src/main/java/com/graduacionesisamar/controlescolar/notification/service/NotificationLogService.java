@@ -11,6 +11,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 /**
@@ -20,6 +22,14 @@ import java.util.List;
 @RequiredArgsConstructor
 @Transactional
 public class NotificationLogService {
+
+    private static final ZoneId NOTIFICATION_TIME_ZONE =
+            ZoneId.of("America/Mexico_City");
+
+    private static final DateTimeFormatter EVENT_TIME_FORMATTER =
+            DateTimeFormatter.ofPattern(
+                    "dd/MM/yyyy 'a las' HH:mm"
+            );
 
     private final NotificationLogRepository notificationLogRepository;
     private final StudentGuardianRepository studentGuardianRepository;
@@ -66,9 +76,14 @@ public class NotificationLogService {
                 ? "una entrada"
                 : "una salida";
 
-        return "%s registró %s.".formatted(
+        String eventTime = event.getOccurredAt()
+                .atZoneSameInstant(NOTIFICATION_TIME_ZONE)
+                .format(EVENT_TIME_FORMATTER);
+
+        return "%s registró %s. Evento: %s.".formatted(
                 buildStudentName(event.getStudent()),
-                movement
+                movement,
+                eventTime
         );
     }
 

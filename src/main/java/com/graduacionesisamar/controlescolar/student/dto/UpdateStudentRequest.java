@@ -5,12 +5,9 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 /**
- * Contains the information required to create a student.
+ * Contains the information that can be updated for a student.
  */
-public record CreateStudentRequest(
-
-        @NotNull(message = "School id is required")
-        Long schoolId,
+public record UpdateStudentRequest(
 
         @NotBlank(message = "Enrollment number is required")
         @Size(max = 50)
@@ -24,12 +21,7 @@ public record CreateStudentRequest(
         @Size(max = 150)
         String lastName,
 
-        @Size(max = 50)
-        String gradeName,
-
-        @Size(max = 50)
-        String groupName,
-
+        @NotNull(message = "School group id is required")
         Long schoolGroupId
 ) {
 }

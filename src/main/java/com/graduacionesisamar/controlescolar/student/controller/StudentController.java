@@ -2,6 +2,7 @@ package com.graduacionesisamar.controlescolar.student.controller;
 
 import com.graduacionesisamar.controlescolar.student.dto.CreateStudentRequest;
 import com.graduacionesisamar.controlescolar.student.dto.StudentResponse;
+import com.graduacionesisamar.controlescolar.student.dto.UpdateStudentRequest;
 import com.graduacionesisamar.controlescolar.student.service.StudentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -47,5 +48,16 @@ public class StudentController {
     @GetMapping("/{id}")
     public StudentResponse findById(@PathVariable Long id) {
         return studentService.findById(id);
+    }
+
+    /**
+     * Updates a student and their assigned school group.
+     */
+    @PutMapping("/{id}")
+    public StudentResponse update(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateStudentRequest request
+    ) {
+        return studentService.update(id, request);
     }
 }

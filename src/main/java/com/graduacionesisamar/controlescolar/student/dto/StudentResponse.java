@@ -14,6 +14,9 @@ public record StudentResponse(
         String lastName,
         String gradeName,
         String groupName,
+        Long schoolGroupId,
+        Long academicCycleId,
+        String academicCycleName,
         Boolean active,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt
