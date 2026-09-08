@@ -1,6 +1,7 @@
 package com.graduacionesisamar.controlescolar.student.entity;
 
 import com.graduacionesisamar.controlescolar.school.entity.School;
+import com.graduacionesisamar.controlescolar.schoolgroup.entity.SchoolGroup;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -40,6 +41,10 @@ public class Student {
 
     @Column(name = "group_name", length = 50)
     private String groupName;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "school_group_id")
+    private SchoolGroup schoolGroup;
 
     @Column(nullable = false)
     private Boolean active = true;
