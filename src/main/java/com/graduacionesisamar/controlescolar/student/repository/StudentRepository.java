@@ -20,6 +20,12 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
             String enrollmentNumber
     );
 
+    boolean existsBySchool_IdAndEnrollmentNumberIgnoreCaseAndIdNot(
+            Long schoolId,
+            String enrollmentNumber,
+            Long studentId
+    );
+
     List<Student> findAllBySchool_IdOrderByLastNameAscFirstNameAsc(
             Long schoolId
     );

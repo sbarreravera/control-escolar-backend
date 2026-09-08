@@ -8,6 +8,7 @@ import com.graduacionesisamar.controlescolar.schoolgroup.repository.SchoolGroupR
 import com.graduacionesisamar.controlescolar.security.service.SchoolAccessService;
 import com.graduacionesisamar.controlescolar.student.dto.CreateStudentRequest;
 import com.graduacionesisamar.controlescolar.student.dto.StudentResponse;
+import com.graduacionesisamar.controlescolar.student.dto.UpdateStudentRequest;
 import com.graduacionesisamar.controlescolar.student.entity.Student;
 import com.graduacionesisamar.controlescolar.student.repository.StudentRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -133,6 +134,77 @@ class StudentServiceTest {
         );
 
         assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        verify(studentRepository, never()).save(any());
+    }
+
+    @Test
+    void updateChangesStudentAndAssignedGroup() {
+        Student student = new Student();
+        student.setId(40L);
+        student.setSchool(school);
+        student.setEnrollmentNumber("MAT-001");
+        student.setFirstName("Ana");
+        student.setLastName("Pérez");
+        student.setGradeName("Segundo grado");
+        student.setGroupName("B");
+        student.setActive(true);
+
+        UpdateStudentRequest request = new UpdateStudentRequest(
+                " mat-002 ",
+                " Mariana ",
+                " López ",
+                30L
+        );
+
+        when(studentRepository.findById(40L))
+                .thenReturn(Optional.of(student));
+        when(schoolGroupRepository.findById(30L))
+                .thenReturn(Optional.of(group));
+        when(studentRepository.save(student))
+                .thenReturn(student);
+
+        StudentResponse response = studentService.update(40L, request);
+
+        assertEquals("MAT-002", response.enrollmentNumber());
+        assertEquals("Mariana", response.firstName());
+        assertEquals("López", response.lastName());
+        assertEquals("Primer grado", response.gradeName());
+        assertEquals("A", response.groupName());
+        assertEquals(30L, response.schoolGroupId());
+        verify(schoolAccessService).requireAccessToSchool(10L);
+    }
+
+    @Test
+    void updateRejectsEnrollmentUsedByAnotherStudent() {
+        Student student = new Student();
+        student.setId(40L);
+        student.setSchool(school);
+
+        UpdateStudentRequest request = new UpdateStudentRequest(
+                "MAT-002",
+                "Ana",
+                "Pérez",
+                30L
+        );
+
+        when(studentRepository.findById(40L))
+                .thenReturn(Optional.of(student));
+        when(schoolGroupRepository.findById(30L))
+                .thenReturn(Optional.of(group));
+        when(studentRepository
+                .existsBySchool_IdAndEnrollmentNumberIgnoreCaseAndIdNot(
+                        10L,
+                        "MAT-002",
+                        40L
+                ))
+                .thenReturn(true);
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> studentService.update(40L, request)
+        );
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
         verify(studentRepository, never()).save(any());
     }
 }

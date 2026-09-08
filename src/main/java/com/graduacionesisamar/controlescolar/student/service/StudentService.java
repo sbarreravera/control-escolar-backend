@@ -7,6 +7,7 @@ import com.graduacionesisamar.controlescolar.schoolgroup.entity.SchoolGroup;
 import com.graduacionesisamar.controlescolar.schoolgroup.repository.SchoolGroupRepository;
 import com.graduacionesisamar.controlescolar.student.dto.CreateStudentRequest;
 import com.graduacionesisamar.controlescolar.student.dto.StudentResponse;
+import com.graduacionesisamar.controlescolar.student.dto.UpdateStudentRequest;
 import com.graduacionesisamar.controlescolar.student.entity.Student;
 import com.graduacionesisamar.controlescolar.student.repository.StudentRepository;
 import lombok.RequiredArgsConstructor;
@@ -87,6 +88,47 @@ public class StudentService {
         return toResponse(student);
     }
 
+    /**
+     * Updates a student without allowing transfers between schools.
+     */
+    @Transactional
+    public StudentResponse update(
+            Long id,
+            UpdateStudentRequest request
+    ) {
+        Student student = studentRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Student not found"
+                ));
+
+        Long schoolId = student.getSchool().getId();
+        schoolAccessService.requireAccessToSchool(schoolId);
+
+        SchoolGroup schoolGroup = resolveSchoolGroup(
+                request.schoolGroupId(),
+                schoolId
+        );
+        String enrollment = request.enrollmentNumber()
+                .trim()
+                .toUpperCase();
+
+        validateEnrollmentForUpdate(
+                schoolId,
+                enrollment,
+                student.getId()
+        );
+
+        student.setEnrollmentNumber(enrollment);
+        student.setFirstName(request.firstName().trim());
+        student.setLastName(request.lastName().trim());
+        student.setSchoolGroup(schoolGroup);
+        student.setGradeName(schoolGroup.getGradeName());
+        student.setGroupName(schoolGroup.getGroupName());
+
+        return toResponse(studentRepository.save(student));
+    }
+
     private School findSchool(Long schoolId) {
         return schoolRepository.findById(schoolId)
                 .orElseThrow(() -> new ResponseStatusException(
@@ -100,6 +142,26 @@ public class StudentService {
                 .existsBySchool_IdAndEnrollmentNumberIgnoreCase(
                         schoolId,
                         enrollment
+                );
+
+        if (exists) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "The enrollment number already exists in this school"
+            );
+        }
+    }
+
+    private void validateEnrollmentForUpdate(
+            Long schoolId,
+            String enrollment,
+            Long studentId
+    ) {
+        boolean exists = studentRepository
+                .existsBySchool_IdAndEnrollmentNumberIgnoreCaseAndIdNot(
+                        schoolId,
+                        enrollment,
+                        studentId
                 );
 
         if (exists) {
