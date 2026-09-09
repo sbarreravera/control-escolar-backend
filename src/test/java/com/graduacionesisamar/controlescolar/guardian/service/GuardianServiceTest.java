@@ -2,6 +2,7 @@ package com.graduacionesisamar.controlescolar.guardian.service;
 
 import com.graduacionesisamar.controlescolar.guardian.dto.CreateGuardianRequest;
 import com.graduacionesisamar.controlescolar.guardian.dto.GuardianResponse;
+import com.graduacionesisamar.controlescolar.guardian.dto.UpdateGuardianRequest;
 import com.graduacionesisamar.controlescolar.guardian.entity.Guardian;
 import com.graduacionesisamar.controlescolar.guardian.repository.GuardianRepository;
 import com.graduacionesisamar.controlescolar.school.entity.School;
@@ -19,6 +20,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -50,7 +52,7 @@ class GuardianServiceTest {
         school.setId(10L);
         school.setName("Colegio San Felipe de Jesús");
 
-        when(schoolRepository.findById(10L))
+        lenient().when(schoolRepository.findById(10L))
                 .thenReturn(Optional.of(school));
     }
 
@@ -109,6 +111,55 @@ class GuardianServiceTest {
         );
 
         assertEquals(409, exception.getStatusCode().value());
+        verify(guardianRepository, never()).save(any(Guardian.class));
+    }
+
+    @Test
+    void updateChangesContactDataAndPreservesStableIdentity() {
+        Guardian guardian = new Guardian();
+        guardian.setId(20L);
+        guardian.setSchool(school);
+        guardian.setExternalReference("TUT-PRUEBA-001");
+        guardian.setFullName("Samuel Barrera Vera");
+
+        UpdateGuardianRequest request = new UpdateGuardianRequest(
+                "  Samuel Barrera Vera  ",
+                "  7737361800  ",
+                "  TRIPLE_SEVEN_SAM@HOTMAIL.COM  "
+        );
+
+        when(guardianRepository.findById(20L))
+                .thenReturn(Optional.of(guardian));
+        when(guardianRepository.save(guardian))
+                .thenReturn(guardian);
+
+        GuardianResponse response = service.update(20L, request);
+
+        assertEquals("TUT-PRUEBA-001", response.externalReference());
+        assertEquals("Samuel Barrera Vera", response.fullName());
+        assertEquals("7737361800", response.phone());
+        assertEquals("triple_seven_sam@hotmail.com", response.email());
+        verify(schoolAccessService).requireAccessToSchool(10L);
+        verify(guardianRepository).save(guardian);
+    }
+
+    @Test
+    void updateRejectsAnUnknownGuardian() {
+        UpdateGuardianRequest request = new UpdateGuardianRequest(
+                "Samuel Barrera Vera",
+                null,
+                null
+        );
+
+        when(guardianRepository.findById(99L))
+                .thenReturn(Optional.empty());
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> service.update(99L, request)
+        );
+
+        assertEquals(404, exception.getStatusCode().value());
         verify(guardianRepository, never()).save(any(Guardian.class));
     }
 }
