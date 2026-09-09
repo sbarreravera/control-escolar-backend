@@ -1,6 +1,7 @@
 package com.graduacionesisamar.controlescolar.guardianactivation.dto;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 
 /**
  * Administrative activation state without exposing invitation tokens.
@@ -17,6 +18,7 @@ public record GuardianActivationStatusResponse(
         OffsetDateTime invitationExpiresAt,
         OffsetDateTime activatedAt,
         int activeDevices,
-        int activeSessions
+        int activeSessions,
+        List<GuardianActivationStudentResponse> students
 ) {
 }

@@ -41,5 +41,8 @@ public interface GuardianDeviceEnrollmentRepository
     );
 
     List<GuardianDeviceEnrollment>
+    findAllByGuardian_IdInOrderByCreatedAtDesc(List<Long> guardianIds);
+
+    List<GuardianDeviceEnrollment>
     findAllByGuardian_School_IdOrderByCreatedAtDesc(Long schoolId);
 }

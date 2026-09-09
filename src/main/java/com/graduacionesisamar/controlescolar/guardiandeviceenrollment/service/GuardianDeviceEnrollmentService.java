@@ -89,7 +89,7 @@ public class GuardianDeviceEnrollmentService {
     }
 
     /**
-     * Creates invitations atomically for up to 500 guardians in one school.
+     * Creates invitations atomically for up to 2,000 guardians in one school.
      */
     public GuardianInvitationBatchResponse createBatch(
             CreateGuardianInvitationsRequest request

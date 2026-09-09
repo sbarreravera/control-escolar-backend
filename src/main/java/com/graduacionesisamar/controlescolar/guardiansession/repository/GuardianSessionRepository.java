@@ -21,6 +21,8 @@ public interface GuardianSessionRepository
 
     List<GuardianSession> findAllByGuardian_School_Id(Long schoolId);
 
+    List<GuardianSession> findAllByGuardian_IdIn(List<Long> guardianIds);
+
     List<GuardianSession>
     findAllByGuardian_IdInAndRevokedAtIsNull(List<Long> guardianIds);
 }
