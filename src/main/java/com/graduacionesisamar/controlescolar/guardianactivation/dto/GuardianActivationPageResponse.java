@@ -12,6 +12,7 @@ public record GuardianActivationPageResponse(
         long totalElements,
         int totalPages,
         boolean first,
-        boolean last
+        boolean last,
+        GuardianActivationSummaryResponse summary
 ) {
 }
