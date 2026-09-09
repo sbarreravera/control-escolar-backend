@@ -2,6 +2,8 @@ package com.graduacionesisamar.controlescolar.guardiandeviceenrollment.service;
 
 import com.graduacionesisamar.controlescolar.guardian.entity.Guardian;
 import com.graduacionesisamar.controlescolar.guardian.repository.GuardianRepository;
+import com.graduacionesisamar.controlescolar.guardianactivation.dto.CreateGuardianInvitationsRequest;
+import com.graduacionesisamar.controlescolar.guardianactivation.dto.GuardianInvitationBatchResponse;
 import com.graduacionesisamar.controlescolar.guardiandevice.dto.GuardianDeviceResponse;
 import com.graduacionesisamar.controlescolar.guardiandevice.dto.RegisterGuardianDeviceRequest;
 import com.graduacionesisamar.controlescolar.guardiandevice.service.GuardianDeviceService;
@@ -9,6 +11,8 @@ import com.graduacionesisamar.controlescolar.guardiandeviceenrollment.dto.Comple
 import com.graduacionesisamar.controlescolar.guardiandeviceenrollment.dto.CreateGuardianDeviceEnrollmentResponse;
 import com.graduacionesisamar.controlescolar.guardiandeviceenrollment.entity.GuardianDeviceEnrollment;
 import com.graduacionesisamar.controlescolar.guardiandeviceenrollment.repository.GuardianDeviceEnrollmentRepository;
+import com.graduacionesisamar.controlescolar.guardiansession.service.GuardianSessionService;
+import com.graduacionesisamar.controlescolar.guardiansession.service.IssuedGuardianSession;
 import com.graduacionesisamar.controlescolar.school.entity.School;
 import com.graduacionesisamar.controlescolar.security.service.SchoolAccessService;
 import org.junit.jupiter.api.Test;
@@ -54,6 +58,9 @@ class GuardianDeviceEnrollmentServiceTest {
     private GuardianDeviceService guardianDeviceService;
 
     @Mock
+    private GuardianSessionService guardianSessionService;
+
+    @Mock
     private SchoolAccessService schoolAccessService;
 
     @InjectMocks
@@ -70,8 +77,8 @@ class GuardianDeviceEnrollmentServiceTest {
                 .thenReturn(Optional.of(guardian));
 
         when(enrollmentRepository
-                .findAllByGuardian_IdAndUsedAtIsNullAndRevokedAtIsNull(
-                        1L
+                .findAllByGuardian_IdInAndUsedAtIsNullAndRevokedAtIsNull(
+                        List.of(1L)
                 ))
                 .thenReturn(List.of(previous));
 
@@ -125,6 +132,74 @@ class GuardianDeviceEnrollmentServiceTest {
     }
 
     @Test
+    void createBatchGeneratesDistinctInvitationsForOneSchool() {
+        Guardian first = createGuardian(true);
+        Guardian second = createGuardian(true);
+        second.setId(2L);
+        second.setFullName("Segundo tutor");
+
+        List<Long> guardianIds = List.of(1L, 2L);
+
+        when(guardianRepository
+                .findAllBySchool_IdAndIdInOrderByFullNameAsc(
+                        10L,
+                        guardianIds
+                ))
+                .thenReturn(List.of(first, second));
+        when(enrollmentRepository
+                .findAllByGuardian_IdInAndUsedAtIsNullAndRevokedAtIsNull(
+                        guardianIds
+                ))
+                .thenReturn(List.of());
+
+        GuardianInvitationBatchResponse response =
+                enrollmentService.createBatch(
+                        new CreateGuardianInvitationsRequest(
+                                10L,
+                                guardianIds
+                        )
+                );
+
+        assertEquals(2, response.invitationsCreated());
+        assertEquals(2, response.invitations().size());
+        assertNotEquals(
+                response.invitations().get(0).enrollmentToken(),
+                response.invitations().get(1).enrollmentToken()
+        );
+        assertEquals(
+                response.invitations().get(0).expiresAt(),
+                response.invitations().get(1).expiresAt()
+        );
+        verify(schoolAccessService).requireAccessToSchool(10L);
+    }
+
+    @Test
+    void createBatchRejectsGuardianOutsideSchoolBeforeWriting() {
+        List<Long> guardianIds = List.of(1L, 2L);
+
+        when(guardianRepository
+                .findAllBySchool_IdAndIdInOrderByFullNameAsc(
+                        10L,
+                        guardianIds
+                ))
+                .thenReturn(List.of(createGuardian(true)));
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> enrollmentService.createBatch(
+                        new CreateGuardianInvitationsRequest(
+                                10L,
+                                guardianIds
+                        )
+                )
+        );
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+        verify(enrollmentRepository, never())
+                .save(any(GuardianDeviceEnrollment.class));
+    }
+
+    @Test
     void completeRegistersDeviceAndMarksInvitationAsUsed() {
         String enrollmentToken =
                 "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNO12";
@@ -164,7 +239,19 @@ class GuardianDeviceEnrollmentServiceTest {
                 any(RegisterGuardianDeviceRequest.class)
         )).thenReturn(expectedResponse);
 
-        GuardianDeviceResponse response =
+        OffsetDateTime sessionExpiresAt =
+                OffsetDateTime.now().plusDays(30);
+
+        when(guardianSessionService.issue(
+                guardian,
+                50L,
+                "Teléfono de Samuel"
+        )).thenReturn(new IssuedGuardianSession(
+                "guardian-session-token",
+                sessionExpiresAt
+        ));
+
+        CompletedGuardianEnrollment completed =
                 enrollmentService.complete(request);
 
         ArgumentCaptor<RegisterGuardianDeviceRequest> requestCaptor =
@@ -187,7 +274,15 @@ class GuardianDeviceEnrollmentServiceTest {
                 registrationRequest.deviceName()
         );
 
-        assertSame(expectedResponse, response);
+        assertSame(expectedResponse, completed.response().device());
+        assertEquals(
+                "guardian-session-token",
+                completed.sessionToken()
+        );
+        assertEquals(
+                sessionExpiresAt,
+                completed.response().sessionExpiresAt()
+        );
         assertNotNull(enrollment.getUsedAt());
 
         verify(enrollmentRepository).save(enrollment);

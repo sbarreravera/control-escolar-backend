@@ -23,4 +23,9 @@ public interface GuardianDeviceRepository
     findAllByGuardian_IdAndActiveTrueOrderByRegisteredAtDesc(
             Long guardianId
     );
+
+    List<GuardianDevice> findAllByGuardian_School_Id(Long schoolId);
+
+    List<GuardianDevice>
+    findAllByGuardian_IdInAndActiveTrue(List<Long> guardianIds);
 }

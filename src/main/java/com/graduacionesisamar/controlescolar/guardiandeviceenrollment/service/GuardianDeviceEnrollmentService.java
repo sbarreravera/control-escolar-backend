@@ -2,13 +2,19 @@ package com.graduacionesisamar.controlescolar.guardiandeviceenrollment.service;
 
 import com.graduacionesisamar.controlescolar.guardian.entity.Guardian;
 import com.graduacionesisamar.controlescolar.guardian.repository.GuardianRepository;
+import com.graduacionesisamar.controlescolar.guardianactivation.dto.CreateGuardianInvitationsRequest;
+import com.graduacionesisamar.controlescolar.guardianactivation.dto.GuardianInvitationBatchResponse;
+import com.graduacionesisamar.controlescolar.guardianactivation.dto.GuardianInvitationResponse;
 import com.graduacionesisamar.controlescolar.guardiandevice.dto.GuardianDeviceResponse;
 import com.graduacionesisamar.controlescolar.guardiandevice.dto.RegisterGuardianDeviceRequest;
 import com.graduacionesisamar.controlescolar.guardiandevice.service.GuardianDeviceService;
 import com.graduacionesisamar.controlescolar.guardiandeviceenrollment.dto.CompleteGuardianDeviceEnrollmentRequest;
+import com.graduacionesisamar.controlescolar.guardiandeviceenrollment.dto.CompleteGuardianDeviceEnrollmentResponse;
 import com.graduacionesisamar.controlescolar.guardiandeviceenrollment.dto.CreateGuardianDeviceEnrollmentResponse;
 import com.graduacionesisamar.controlescolar.guardiandeviceenrollment.entity.GuardianDeviceEnrollment;
 import com.graduacionesisamar.controlescolar.guardiandeviceenrollment.repository.GuardianDeviceEnrollmentRepository;
+import com.graduacionesisamar.controlescolar.guardiansession.service.GuardianSessionService;
+import com.graduacionesisamar.controlescolar.guardiansession.service.IssuedGuardianSession;
 import com.graduacionesisamar.controlescolar.security.service.SchoolAccessService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -20,14 +26,18 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 
 /**
- * Creates and completes temporary invitations used to register
- * guardian notification devices.
+ * Creates and completes one-time guardian activation invitations.
  */
 @Service
 @RequiredArgsConstructor
@@ -35,17 +45,19 @@ import java.util.List;
 public class GuardianDeviceEnrollmentService {
 
     private static final int TOKEN_BYTES = 32;
-    private static final int EXPIRATION_MINUTES = 15;
+    private static final Duration INVITATION_DURATION =
+            Duration.ofDays(7);
 
     private final GuardianDeviceEnrollmentRepository enrollmentRepository;
     private final GuardianRepository guardianRepository;
     private final GuardianDeviceService guardianDeviceService;
+    private final GuardianSessionService guardianSessionService;
     private final SchoolAccessService schoolAccessService;
 
     private final SecureRandom secureRandom = new SecureRandom();
 
     /**
-     * Creates a new one-time enrollment invitation.
+     * Creates a new one-time invitation for one guardian.
      */
     public CreateGuardianDeviceEnrollmentResponse create(
             Long guardianId
@@ -56,96 +68,193 @@ public class GuardianDeviceEnrollmentService {
                 guardian.getSchool().getId()
         );
 
-        if (!Boolean.TRUE.equals(guardian.getActive())) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Inactive guardian cannot receive invitations"
-            );
-        }
+        validateActive(guardian);
 
+        UUID batchId = UUID.randomUUID();
         OffsetDateTime now = OffsetDateTime.now();
-        revokePreviousInvitations(guardianId, now);
+        OffsetDateTime expiresAt = now.plus(INVITATION_DURATION);
 
-        String enrollmentToken = generateToken();
+        revokePreviousInvitations(List.of(guardianId), now);
 
-        GuardianDeviceEnrollment enrollment =
-                new GuardianDeviceEnrollment();
-
-        enrollment.setGuardian(guardian);
-        enrollment.setTokenHash(hashToken(enrollmentToken));
-        enrollment.setExpiresAt(
-                now.plusMinutes(EXPIRATION_MINUTES)
-        );
-
-        GuardianDeviceEnrollment savedEnrollment =
-                enrollmentRepository.save(enrollment);
+        GuardianInvitationResponse invitation =
+                createInvitation(guardian, batchId, expiresAt);
 
         return new CreateGuardianDeviceEnrollmentResponse(
-                guardian.getId(),
-                guardian.getFullName(),
-                guardian.getSchool().getName(),
-                enrollmentToken,
-                savedEnrollment.getExpiresAt()
+                invitation.guardianId(),
+                invitation.guardianName(),
+                invitation.schoolName(),
+                invitation.enrollmentToken(),
+                invitation.expiresAt()
         );
     }
 
     /**
-     * Validates a one-time invitation and registers
-     * the guardian's device.
+     * Creates invitations atomically for up to 500 guardians in one school.
      */
-    public GuardianDeviceResponse complete(
+    public GuardianInvitationBatchResponse createBatch(
+            CreateGuardianInvitationsRequest request
+    ) {
+        schoolAccessService.requireAccessToSchool(request.schoolId());
+
+        List<Long> guardianIds = distinctIds(request.guardianIds());
+        List<Guardian> guardians = guardianRepository
+                .findAllBySchool_IdAndIdInOrderByFullNameAsc(
+                        request.schoolId(),
+                        guardianIds
+                );
+
+        if (guardians.size() != guardianIds.size()) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "One or more guardians were not found in this school"
+            );
+        }
+
+        guardians.forEach(this::validateActive);
+
+        UUID batchId = UUID.randomUUID();
+        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime expiresAt = now.plus(INVITATION_DURATION);
+
+        revokePreviousInvitations(guardianIds, now);
+
+        List<GuardianInvitationResponse> invitations =
+                new ArrayList<>(guardians.size());
+
+        for (Guardian guardian : guardians) {
+            invitations.add(createInvitation(
+                    guardian,
+                    batchId,
+                    expiresAt
+            ));
+        }
+
+        return new GuardianInvitationBatchResponse(
+                batchId,
+                expiresAt,
+                invitations.size(),
+                List.copyOf(invitations)
+        );
+    }
+
+    /**
+     * Consumes an invitation, registers FCM and issues an opaque session.
+     */
+    public CompletedGuardianEnrollment complete(
             CompleteGuardianDeviceEnrollmentRequest request
     ) {
-        String enrollmentToken =
-                request.enrollmentToken().trim();
+        String enrollmentToken = request.enrollmentToken().trim();
 
-        GuardianDeviceEnrollment enrollment =
-                enrollmentRepository
-                        .findByTokenHash(
-                                hashToken(enrollmentToken)
-                        )
-                        .orElseThrow(() ->
-                                new ResponseStatusException(
-                                        HttpStatus.NOT_FOUND,
-                                        "Enrollment invitation not found"
-                                )
-                        );
+        GuardianDeviceEnrollment enrollment = enrollmentRepository
+                .findByTokenHash(hashToken(enrollmentToken))
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Enrollment invitation not found"
+                ));
 
         OffsetDateTime now = OffsetDateTime.now();
-
         validateEnrollment(enrollment, now);
+
+        Guardian guardian = enrollment.getGuardian();
 
         GuardianDeviceResponse device =
                 guardianDeviceService.registerFromEnrollment(
-                        enrollment.getGuardian(),
+                        guardian,
                         new RegisterGuardianDeviceRequest(
                                 request.fcmToken(),
                                 request.deviceName()
                         )
                 );
 
+        IssuedGuardianSession session = guardianSessionService.issue(
+                guardian,
+                device.id(),
+                request.deviceName()
+        );
+
         enrollment.setUsedAt(now);
         enrollmentRepository.save(enrollment);
 
-        return device;
+        CompleteGuardianDeviceEnrollmentResponse response =
+                new CompleteGuardianDeviceEnrollmentResponse(
+                        guardian.getId(),
+                        guardian.getFullName(),
+                        guardian.getSchool().getName(),
+                        device,
+                        session.expiresAt()
+                );
+
+        return new CompletedGuardianEnrollment(
+                response,
+                session.token()
+        );
+    }
+
+    private GuardianInvitationResponse createInvitation(
+            Guardian guardian,
+            UUID batchId,
+            OffsetDateTime expiresAt
+    ) {
+        String enrollmentToken = generateToken();
+
+        GuardianDeviceEnrollment enrollment =
+                new GuardianDeviceEnrollment();
+        enrollment.setGuardian(guardian);
+        enrollment.setBatchId(batchId);
+        enrollment.setTokenHash(hashToken(enrollmentToken));
+        enrollment.setExpiresAt(expiresAt);
+
+        enrollmentRepository.save(enrollment);
+
+        return new GuardianInvitationResponse(
+                guardian.getId(),
+                guardian.getExternalReference(),
+                guardian.getFullName(),
+                guardian.getPhone(),
+                guardian.getEmail(),
+                guardian.getSchool().getName(),
+                enrollmentToken,
+                expiresAt
+        );
     }
 
     private void revokePreviousInvitations(
-            Long guardianId,
+            List<Long> guardianIds,
             OffsetDateTime revokedAt
     ) {
         List<GuardianDeviceEnrollment> invitations =
                 enrollmentRepository
-                        .findAllByGuardian_IdAndUsedAtIsNullAndRevokedAtIsNull(
-                                guardianId
+                        .findAllByGuardian_IdInAndUsedAtIsNullAndRevokedAtIsNull(
+                                guardianIds
                         );
 
         invitations.forEach(
-                invitation ->
-                        invitation.setRevokedAt(revokedAt)
+                invitation -> invitation.setRevokedAt(revokedAt)
         );
 
         enrollmentRepository.saveAll(invitations);
+    }
+
+    private List<Long> distinctIds(List<Long> guardianIds) {
+        Set<Long> distinctIds = new HashSet<>(guardianIds);
+
+        if (distinctIds.size() != guardianIds.size()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Guardian ids must not be repeated"
+            );
+        }
+
+        return List.copyOf(guardianIds);
+    }
+
+    private void validateActive(Guardian guardian) {
+        if (!Boolean.TRUE.equals(guardian.getActive())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Inactive guardian cannot receive invitations"
+            );
+        }
     }
 
     private void validateEnrollment(
@@ -173,14 +282,7 @@ public class GuardianDeviceEnrollmentService {
             );
         }
 
-        if (!Boolean.TRUE.equals(
-                enrollment.getGuardian().getActive()
-        )) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Guardian is inactive"
-            );
-        }
+        validateActive(enrollment.getGuardian());
     }
 
     private Guardian findGuardian(Long guardianId) {

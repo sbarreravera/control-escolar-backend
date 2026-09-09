@@ -1,5 +1,4 @@
-package com.graduacionesisamar.controlescolar
-        .guardiandeviceenrollment.entity;
+package com.graduacionesisamar.controlescolar.guardiansession.entity;
 
 import com.graduacionesisamar.controlescolar.guardian.entity.Guardian;
 import jakarta.persistence.Column;
@@ -17,18 +16,17 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.OffsetDateTime;
-import java.util.UUID;
 
 /**
- * Represents a temporary invitation used to register
- * a notification device for a guardian.
+ * Server-side opaque session issued after a guardian consumes
+ * a valid one-time invitation.
  */
 @Getter
 @Setter
 @NoArgsConstructor
 @Entity
-@Table(name = "guardian_device_enrollments")
-public class GuardianDeviceEnrollment {
+@Table(name = "guardian_sessions")
+public class GuardianSession {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -38,8 +36,8 @@ public class GuardianDeviceEnrollment {
     @JoinColumn(name = "guardian_id", nullable = false)
     private Guardian guardian;
 
-    @Column(name = "batch_id")
-    private UUID batchId;
+    @Column(name = "guardian_device_id", nullable = false)
+    private Long guardianDeviceId;
 
     @Column(
             name = "token_hash",
@@ -49,14 +47,8 @@ public class GuardianDeviceEnrollment {
     )
     private String tokenHash;
 
-    @Column(name = "expires_at", nullable = false)
-    private OffsetDateTime expiresAt;
-
-    @Column(name = "used_at")
-    private OffsetDateTime usedAt;
-
-    @Column(name = "revoked_at")
-    private OffsetDateTime revokedAt;
+    @Column(name = "device_name", length = 100)
+    private String deviceName;
 
     @Column(
             name = "created_at",
@@ -65,10 +57,25 @@ public class GuardianDeviceEnrollment {
     )
     private OffsetDateTime createdAt;
 
+    @Column(name = "expires_at", nullable = false)
+    private OffsetDateTime expiresAt;
+
+    @Column(name = "last_used_at", nullable = false)
+    private OffsetDateTime lastUsedAt;
+
+    @Column(name = "revoked_at")
+    private OffsetDateTime revokedAt;
+
     @PrePersist
     void prePersist() {
+        OffsetDateTime now = OffsetDateTime.now();
+
         if (createdAt == null) {
-            createdAt = OffsetDateTime.now();
+            createdAt = now;
+        }
+
+        if (lastUsedAt == null) {
+            lastUsedAt = now;
         }
     }
 }
