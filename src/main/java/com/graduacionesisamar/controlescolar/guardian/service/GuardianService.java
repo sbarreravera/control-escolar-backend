@@ -2,6 +2,7 @@ package com.graduacionesisamar.controlescolar.guardian.service;
 
 import com.graduacionesisamar.controlescolar.guardian.dto.CreateGuardianRequest;
 import com.graduacionesisamar.controlescolar.guardian.dto.GuardianResponse;
+import com.graduacionesisamar.controlescolar.guardian.dto.UpdateGuardianRequest;
 import com.graduacionesisamar.controlescolar.guardian.entity.Guardian;
 import com.graduacionesisamar.controlescolar.guardian.repository.GuardianRepository;
 import com.graduacionesisamar.controlescolar.school.entity.School;
@@ -70,17 +71,41 @@ public class GuardianService {
      */
     @Transactional(readOnly = true)
     public GuardianResponse findById(Long id) {
-        Guardian guardian = guardianRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Guardian not found"
-                ));
+        Guardian guardian = findGuardian(id);
 
         schoolAccessService.requireAccessToSchool(
                 guardian.getSchool().getId()
         );
 
         return toResponse(guardian);
+    }
+
+    /**
+     * Updates a guardian without changing its stable external reference,
+     * school or student relationships.
+     */
+    public GuardianResponse update(
+            Long id,
+            UpdateGuardianRequest request
+    ) {
+        Guardian guardian = findGuardian(id);
+        schoolAccessService.requireAccessToSchool(
+                guardian.getSchool().getId()
+        );
+
+        guardian.setFullName(request.fullName().trim());
+        guardian.setPhone(trimNullable(request.phone()));
+        guardian.setEmail(normalizeEmail(request.email()));
+
+        return toResponse(guardianRepository.save(guardian));
+    }
+
+    private Guardian findGuardian(Long id) {
+        return guardianRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Guardian not found"
+                ));
     }
 
     private School findSchool(Long schoolId) {
