@@ -26,6 +26,8 @@ public interface GuardianDeviceRepository
 
     List<GuardianDevice> findAllByGuardian_School_Id(Long schoolId);
 
+    List<GuardianDevice> findAllByGuardian_IdIn(List<Long> guardianIds);
+
     List<GuardianDevice>
     findAllByGuardian_IdInAndActiveTrue(List<Long> guardianIds);
 }
