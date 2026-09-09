@@ -1,5 +1,7 @@
 package com.graduacionesisamar.controlescolar.guardianactivation.service;
 
+import com.graduacionesisamar.controlescolar.academiccycle.entity.AcademicCycle;
+import com.graduacionesisamar.controlescolar.academiccycle.repository.AcademicCycleRepository;
 import com.graduacionesisamar.controlescolar.guardian.entity.Guardian;
 import com.graduacionesisamar.controlescolar.guardian.repository.GuardianRepository;
 import com.graduacionesisamar.controlescolar.guardianactivation.dto.GuardianAccessRevocationResponse;
@@ -15,6 +17,7 @@ import com.graduacionesisamar.controlescolar.guardiansession.repository.Guardian
 import com.graduacionesisamar.controlescolar.school.entity.School;
 import com.graduacionesisamar.controlescolar.school.repository.SchoolRepository;
 import com.graduacionesisamar.controlescolar.security.service.SchoolAccessService;
+import com.graduacionesisamar.controlescolar.studentguardian.repository.StudentGuardianRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -25,6 +28,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -48,6 +52,10 @@ class GuardianActivationAdministrationServiceTest {
     @Mock
     private SchoolRepository schoolRepository;
     @Mock
+    private AcademicCycleRepository academicCycleRepository;
+    @Mock
+    private StudentGuardianRepository studentGuardianRepository;
+    @Mock
     private SchoolAccessService schoolAccessService;
 
     @InjectMocks
@@ -70,21 +78,26 @@ class GuardianActivationAdministrationServiceTest {
         device.setGuardian(guardian);
         device.setActive(true);
 
-        when(schoolRepository.existsById(10L)).thenReturn(true);
-        when(guardianRepository.findAllBySchool_IdOrderByFullNameAsc(10L))
+        stubAcademicScope();
+        when(guardianRepository.findForActivation(
+                10L, 30L, null, "", "ALL", ""
+        ))
                 .thenReturn(List.of(guardian));
         when(enrollmentRepository
-                .findAllByGuardian_School_IdOrderByCreatedAtDesc(10L))
+                .findAllByGuardian_IdInOrderByCreatedAtDesc(List.of(1L)))
                 .thenReturn(List.of(enrollment));
         when(guardianSessionRepository
-                .findAllByGuardian_School_Id(10L))
+                .findAllByGuardian_IdIn(List.of(1L)))
                 .thenReturn(List.of(session));
         when(guardianDeviceRepository
-                .findAllByGuardian_School_Id(10L))
+                .findAllByGuardian_IdIn(List.of(1L)))
                 .thenReturn(List.of(device));
+        when(studentGuardianRepository.findForGuardianSummaries(
+                List.of(1L), 30L
+        )).thenReturn(List.of());
 
         GuardianActivationPageResponse page = service.findPage(
-                10L, 0, 25, "", "ALL"
+                10L, 0, 25, "", "ALL", 30L, null, "", "ALL"
         );
         List<GuardianActivationStatusResponse> statuses = page.content();
 
@@ -93,31 +106,42 @@ class GuardianActivationAdministrationServiceTest {
         assertEquals("ACTIVE", statuses.getFirst().activationState());
         assertEquals(1, statuses.getFirst().activeSessions());
         assertEquals(1, statuses.getFirst().activeDevices());
+        assertEquals(1, page.summary().active());
         verify(schoolAccessService).requireAccessToSchool(10L);
     }
 
     @Test
     void findPageFiltersBeforeApplyingPagination() {
-        Guardian first = createGuardian(1L);
-        first.setFullName("Ana López");
         Guardian second = createGuardian(2L);
         second.setFullName("Bruno Pérez");
 
-        when(schoolRepository.existsById(10L)).thenReturn(true);
-        when(guardianRepository.findAllBySchool_IdOrderByFullNameAsc(10L))
-                .thenReturn(List.of(first, second));
+        stubAcademicScope();
+        when(guardianRepository.findForActivation(
+                10L, 30L, null, "", "ALL", "bruno"
+        )).thenReturn(List.of(second));
         when(enrollmentRepository
-                .findAllByGuardian_School_IdOrderByCreatedAtDesc(10L))
+                .findAllByGuardian_IdInOrderByCreatedAtDesc(List.of(2L)))
                 .thenReturn(List.of());
         when(guardianSessionRepository
-                .findAllByGuardian_School_Id(10L))
+                .findAllByGuardian_IdIn(List.of(2L)))
                 .thenReturn(List.of());
         when(guardianDeviceRepository
-                .findAllByGuardian_School_Id(10L))
+                .findAllByGuardian_IdIn(List.of(2L)))
                 .thenReturn(List.of());
+        when(studentGuardianRepository.findForGuardianSummaries(
+                List.of(2L), 30L
+        )).thenReturn(List.of());
 
         GuardianActivationPageResponse page = service.findPage(
-                10L, 0, 1, "bruno", "NOT_ACTIVE"
+                10L,
+                0,
+                1,
+                "bruno",
+                "NOT_ACTIVE",
+                30L,
+                null,
+                "",
+                "ALL"
         );
 
         assertEquals(1, page.content().size());
@@ -126,6 +150,36 @@ class GuardianActivationAdministrationServiceTest {
         assertEquals(1, page.totalPages());
         assertTrue(page.first());
         assertTrue(page.last());
+        assertEquals(1, page.summary().requiresActivation());
+    }
+
+    @Test
+    void findSelectionReturnsAllActiveGuardiansMatchingTheScope() {
+        Guardian active = createGuardian(1L);
+        Guardian inactive = createGuardian(2L);
+        inactive.setActive(false);
+        List<Long> ids = List.of(1L, 2L);
+
+        stubAcademicScope();
+        when(guardianRepository.findForActivation(
+                10L, 30L, null, "", "ALL", ""
+        )).thenReturn(List.of(active, inactive));
+        when(enrollmentRepository
+                .findAllByGuardian_IdInOrderByCreatedAtDesc(ids))
+                .thenReturn(List.of());
+        when(guardianSessionRepository.findAllByGuardian_IdIn(ids))
+                .thenReturn(List.of());
+        when(guardianDeviceRepository.findAllByGuardian_IdIn(ids))
+                .thenReturn(List.of());
+        when(studentGuardianRepository.findForGuardianSummaries(ids, 30L))
+                .thenReturn(List.of());
+
+        var selection = service.findSelection(
+                10L, "", "ALL", 30L, null, "", "ALL"
+        );
+
+        assertEquals(List.of(1L), selection.guardianIds());
+        assertEquals(1, selection.totalSelected());
     }
 
     @Test
@@ -196,5 +250,18 @@ class GuardianActivationAdministrationServiceTest {
         guardian.setFullName("Tutor " + id);
         guardian.setActive(true);
         return guardian;
+    }
+
+    private void stubAcademicScope() {
+        School school = new School();
+        school.setId(10L);
+
+        AcademicCycle cycle = new AcademicCycle();
+        cycle.setId(30L);
+        cycle.setSchool(school);
+
+        when(schoolRepository.existsById(10L)).thenReturn(true);
+        when(academicCycleRepository.findById(30L))
+                .thenReturn(Optional.of(cycle));
     }
 }
