@@ -8,6 +8,7 @@ import com.graduacionesisamar.controlescolar.guardiandevice.entity.GuardianDevic
 import com.graduacionesisamar.controlescolar.guardiandevice.repository.GuardianDeviceRepository;
 import com.graduacionesisamar.controlescolar.school.entity.School;
 import com.graduacionesisamar.controlescolar.security.service.SchoolAccessService;
+import com.graduacionesisamar.controlescolar.guardiansession.service.GuardianSessionService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -46,6 +47,9 @@ class GuardianDeviceServiceTest {
 
     @Mock
     private SchoolAccessService schoolAccessService;
+
+    @Mock
+    private GuardianSessionService guardianSessionService;
 
     @InjectMocks
     private GuardianDeviceService guardianDeviceService;
@@ -280,6 +284,7 @@ class GuardianDeviceServiceTest {
         assertFalse(response.active());
 
         verify(guardianDeviceRepository).save(device);
+        verify(guardianSessionService).revokeForDevice(10L);
     }
 
     @Test

@@ -16,7 +16,6 @@ public record CompleteGuardianDeviceEnrollmentRequest(
         )
         String enrollmentToken,
 
-        @NotBlank(message = "FCM token is required")
         @Size(
                 max = 512,
                 message = "FCM token must not exceed 512 characters"
@@ -27,7 +26,14 @@ public record CompleteGuardianDeviceEnrollmentRequest(
                 max = 100,
                 message = "Device name must not exceed 100 characters"
         )
-        String deviceName
+        String deviceName,
+
+        @Size(
+                min = 8,
+                max = 72,
+                message = "Password must contain between 8 and 72 characters"
+        )
+        String password
 
 ) {
 }

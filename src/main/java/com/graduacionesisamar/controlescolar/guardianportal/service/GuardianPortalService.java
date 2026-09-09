@@ -4,6 +4,7 @@ import com.graduacionesisamar.controlescolar.academiccycle.entity.AcademicCycle;
 import com.graduacionesisamar.controlescolar.accessevent.entity.AccessEvent;
 import com.graduacionesisamar.controlescolar.accessevent.entity.AccessEventType;
 import com.graduacionesisamar.controlescolar.accessevent.repository.AccessEventRepository;
+import com.graduacionesisamar.controlescolar.accessevent.repository.GuardianAccessEventSpecifications;
 import com.graduacionesisamar.controlescolar.guardianportal.dto.GuardianAccessEventPageResponse;
 import com.graduacionesisamar.controlescolar.guardianportal.dto.GuardianAccessEventResponse;
 import com.graduacionesisamar.controlescolar.guardianportal.dto.GuardianStudentResponse;
@@ -15,6 +16,7 @@ import com.graduacionesisamar.controlescolar.studentguardian.repository.StudentG
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -57,16 +59,24 @@ public class GuardianPortalService {
     ) {
         validateDateRange(occurredFrom, occurredTo);
 
-        Page<AccessEvent> result = accessEventRepository
-                .findGuardianHistory(
+        Page<AccessEvent> result = accessEventRepository.findAll(
+                GuardianAccessEventSpecifications.visibleToGuardian(
                         principal.guardianId(),
                         principal.schoolId(),
                         studentId,
                         eventType,
                         occurredFrom,
-                        occurredTo,
-                        PageRequest.of(page, size)
-                );
+                        occurredTo
+                ),
+                PageRequest.of(
+                        page,
+                        size,
+                        Sort.by(
+                                Sort.Order.desc("occurredAt"),
+                                Sort.Order.desc("id")
+                        )
+                )
+        );
 
         return new GuardianAccessEventPageResponse(
                 result.getContent().stream()

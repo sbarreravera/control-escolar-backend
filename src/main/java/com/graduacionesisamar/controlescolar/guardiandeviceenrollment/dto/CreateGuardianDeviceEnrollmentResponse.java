@@ -2,6 +2,8 @@
 package com.graduacionesisamar.controlescolar
         .guardiandeviceenrollment.dto;
 
+import com.graduacionesisamar.controlescolar.guardiandeviceenrollment.entity.GuardianEnrollmentPurpose;
+
 import java.time.OffsetDateTime;
 
 /**
@@ -15,6 +17,12 @@ public record CreateGuardianDeviceEnrollmentResponse(
         String guardianName,
 
         String schoolName,
+
+        String schoolCode,
+
+        String username,
+
+        GuardianEnrollmentPurpose purpose,
 
         String enrollmentToken,
 

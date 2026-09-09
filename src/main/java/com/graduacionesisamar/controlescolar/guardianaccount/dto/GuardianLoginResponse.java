@@ -1,14 +1,13 @@
-package com.graduacionesisamar.controlescolar.guardiandeviceenrollment.dto;
+package com.graduacionesisamar.controlescolar.guardianaccount.dto;
 
 import com.graduacionesisamar.controlescolar.guardiandevice.dto.GuardianDeviceResponse;
 
 import java.time.OffsetDateTime;
 
 /**
- * Public confirmation returned after activation. The session token is sent
- * exclusively through an HttpOnly cookie.
+ * Guardian identity returned after a successful credential login.
  */
-public record CompleteGuardianDeviceEnrollmentResponse(
+public record GuardianLoginResponse(
         Long guardianId,
         String guardianName,
         String schoolName,

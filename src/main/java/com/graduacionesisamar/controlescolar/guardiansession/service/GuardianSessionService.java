@@ -4,7 +4,7 @@ import com.graduacionesisamar.controlescolar.guardian.entity.Guardian;
 import com.graduacionesisamar.controlescolar.guardiansession.entity.GuardianSession;
 import com.graduacionesisamar.controlescolar.guardiansession.repository.GuardianSessionRepository;
 import com.graduacionesisamar.controlescolar.guardiansession.security.GuardianPrincipal;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,23 +16,37 @@ import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Optional;
 
 /**
  * Issues, validates and revokes opaque server-side guardian sessions.
  */
 @Service
-@RequiredArgsConstructor
 @Transactional
 public class GuardianSessionService {
 
     private static final int TOKEN_BYTES = 32;
-    private static final Duration SESSION_DURATION = Duration.ofDays(30);
     private static final Duration LAST_USED_WRITE_INTERVAL =
             Duration.ofMinutes(5);
 
     private final GuardianSessionRepository guardianSessionRepository;
+    private final Duration sessionDuration;
     private final SecureRandom secureRandom = new SecureRandom();
+
+    public GuardianSessionService(
+            GuardianSessionRepository guardianSessionRepository,
+            @Value("${app.guardian-session.duration-days:90}")
+            long sessionDurationDays
+    ) {
+        if (sessionDurationDays < 1 || sessionDurationDays > 365) {
+            throw new IllegalArgumentException(
+                    "Guardian session duration must be between 1 and 365 days"
+            );
+        }
+        this.guardianSessionRepository = guardianSessionRepository;
+        this.sessionDuration = Duration.ofDays(sessionDurationDays);
+    }
 
     public IssuedGuardianSession issue(
             Guardian guardian,
@@ -47,7 +61,7 @@ public class GuardianSessionService {
         session.setGuardianDeviceId(guardianDeviceId);
         session.setTokenHash(hashToken(rawToken));
         session.setDeviceName(trimNullable(deviceName));
-        session.setExpiresAt(now.plus(SESSION_DURATION));
+        session.setExpiresAt(now.plus(sessionDuration));
         session.setLastUsedAt(now);
 
         GuardianSession saved = guardianSessionRepository.save(session);
@@ -85,6 +99,7 @@ public class GuardianSessionService {
         return Optional.of(new GuardianPrincipal(
                 session.getId(),
                 guardian.getId(),
+                session.getGuardianDeviceId(),
                 guardian.getSchool().getId(),
                 guardian.getFullName(),
                 guardian.getSchool().getName(),
@@ -104,6 +119,48 @@ public class GuardianSessionService {
                     session.setRevokedAt(OffsetDateTime.now());
                     guardianSessionRepository.save(session);
                 });
+    }
+
+    public void attachDevice(
+            Long sessionId,
+            Long guardianId,
+            Long guardianDeviceId
+    ) {
+        GuardianSession session = guardianSessionRepository
+                .findByIdAndGuardian_Id(sessionId, guardianId)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Guardian session not found"
+                ));
+        session.setGuardianDeviceId(guardianDeviceId);
+        guardianSessionRepository.save(session);
+    }
+
+    public int revokeAll(Long guardianId) {
+        OffsetDateTime now = OffsetDateTime.now();
+        List<GuardianSession> sessions = guardianSessionRepository
+                .findAllByGuardian_IdAndRevokedAtIsNullOrderByCreatedAtDesc(
+                        guardianId
+                )
+                .stream()
+                .filter(session -> session.getExpiresAt().isAfter(now))
+                .toList();
+        sessions.forEach(session -> session.setRevokedAt(now));
+        guardianSessionRepository.saveAll(sessions);
+        return sessions.size();
+    }
+
+    public int revokeForDevice(Long guardianDeviceId) {
+        OffsetDateTime now = OffsetDateTime.now();
+        List<GuardianSession> sessions = guardianSessionRepository
+                .findAllByGuardianDeviceIdAndRevokedAtIsNull(
+                        guardianDeviceId
+                )
+                .stream()
+                .filter(session -> session.getExpiresAt().isAfter(now))
+                .toList();
+        sessions.forEach(session -> session.setRevokedAt(now));
+        guardianSessionRepository.saveAll(sessions);
+        return sessions.size();
     }
 
     private boolean isActive(

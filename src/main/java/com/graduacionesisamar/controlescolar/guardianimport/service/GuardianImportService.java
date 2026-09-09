@@ -2,6 +2,7 @@ package com.graduacionesisamar.controlescolar.guardianimport.service;
 
 import com.graduacionesisamar.controlescolar.guardian.entity.Guardian;
 import com.graduacionesisamar.controlescolar.guardian.repository.GuardianRepository;
+import com.graduacionesisamar.controlescolar.guardianaccount.service.GuardianAccountService;
 import com.graduacionesisamar.controlescolar.guardianimport.dto.GuardianImportResultResponse;
 import com.graduacionesisamar.controlescolar.guardianimport.dto.GuardianImportRowErrorResponse;
 import com.graduacionesisamar.controlescolar.guardianimport.dto.GuardianImportTemplate;
@@ -94,6 +95,7 @@ public class GuardianImportService {
     private final GuardianRepository guardianRepository;
     private final StudentGuardianRepository studentGuardianRepository;
     private final SchoolAccessService schoolAccessService;
+    private final GuardianAccountService guardianAccountService;
 
     /**
      * Generates a workbook tied to the authenticated user's school.
@@ -198,6 +200,10 @@ public class GuardianImportService {
                 guardian.getExternalReference(),
                 guardian
         ));
+
+        guardianAccountService.ensureAccounts(
+                List.copyOf(guardiansByReference.values())
+        );
 
         List<StudentGuardian> relationships = analysis.rows().stream()
                 .map(row -> buildRelationship(

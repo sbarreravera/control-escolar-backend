@@ -8,6 +8,7 @@ import java.time.OffsetDateTime;
 public record GuardianPrincipal(
         Long sessionId,
         Long guardianId,
+        Long guardianDeviceId,
         Long schoolId,
         String guardianName,
         String schoolName,

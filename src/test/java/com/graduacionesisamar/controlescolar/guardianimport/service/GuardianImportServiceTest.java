@@ -2,6 +2,7 @@ package com.graduacionesisamar.controlescolar.guardianimport.service;
 
 import com.graduacionesisamar.controlescolar.guardian.entity.Guardian;
 import com.graduacionesisamar.controlescolar.guardian.repository.GuardianRepository;
+import com.graduacionesisamar.controlescolar.guardianaccount.service.GuardianAccountService;
 import com.graduacionesisamar.controlescolar.guardianimport.dto.GuardianImportResultResponse;
 import com.graduacionesisamar.controlescolar.guardianimport.dto.GuardianImportTemplate;
 import com.graduacionesisamar.controlescolar.guardianimport.dto.GuardianImportValidationResponse;
@@ -57,6 +58,9 @@ class GuardianImportServiceTest {
     @Mock
     private SchoolAccessService schoolAccessService;
 
+    @Mock
+    private GuardianAccountService guardianAccountService;
+
     private GuardianImportService service;
     private School school;
     private Student firstStudent;
@@ -70,23 +74,24 @@ class GuardianImportServiceTest {
                 studentRepository,
                 guardianRepository,
                 studentGuardianRepository,
-                schoolAccessService
+                schoolAccessService,
+                guardianAccountService
         );
 
         school = new School();
         school.setId(10L);
-        school.setName("Colegio San Felipe de Jesús");
+        school.setName("Escuela de Prueba 2");
 
-        firstStudent = student(20L, "MAT-001", "Ana", "Pérez");
-        secondStudent = student(21L, "MAT-002", "Luis", "López");
+        firstStudent = student(20L, "MAT-001", "Alumno2", "Pérez");
+        secondStudent = student(21L, "MAT-002", "Luis", "Ejemplo2");
 
         existingGuardian = new Guardian();
         existingGuardian.setId(30L);
         existingGuardian.setSchool(school);
         existingGuardian.setExternalReference("TUT-EXISTE");
-        existingGuardian.setFullName("María Pérez");
-        existingGuardian.setPhone("7731234567");
-        existingGuardian.setEmail("maria@example.com");
+        existingGuardian.setFullName("Tutor de Prueba 4");
+        existingGuardian.setPhone("5550000403");
+        existingGuardian.setEmail("guardian.2@example.test");
         existingGuardian.setActive(true);
 
         when(schoolRepository.findById(10L))
@@ -144,9 +149,9 @@ class GuardianImportServiceTest {
         MockMultipartFile file = workbookFile(List.of(
                 row(
                         "tut-nuevo",
-                        "José López",
-                        "7730000000",
-                        "jose@example.com",
+                        "José Ejemplo2",
+                        "5550000404",
+                        "guardian.5@example.test",
                         "MAT-001",
                         "Padre",
                         "Sí",
@@ -154,9 +159,9 @@ class GuardianImportServiceTest {
                 ),
                 row(
                         "TUT-NUEVO",
-                        "José López",
-                        "7730000000",
-                        "JOSE@example.com",
+                        "José Ejemplo2",
+                        "5550000404",
+                        "guardian.6@example.test",
                         "MAT-002",
                         "Padre",
                         "Sí",
@@ -164,9 +169,9 @@ class GuardianImportServiceTest {
                 ),
                 row(
                         "TUT-EXISTE",
-                        "María Pérez",
-                        "7731234567",
-                        "maria@example.com",
+                        "Tutor de Prueba 4",
+                        "5550000403",
+                        "guardian.2@example.test",
                         "MAT-002",
                         "Madre",
                         "No",
@@ -193,7 +198,7 @@ class GuardianImportServiceTest {
         MockMultipartFile file = workbookFile(List.of(
                 row(
                         "TUT-001",
-                        "José López",
+                        "José Ejemplo2",
                         "",
                         "correo-invalido",
                         "NO-EXISTE",
@@ -246,9 +251,9 @@ class GuardianImportServiceTest {
         MockMultipartFile file = workbookFile(List.of(
                 row(
                         "TUT-001",
-                        "José López",
-                        "7730000000",
-                        "jose@example.com",
+                        "José Ejemplo2",
+                        "5550000404",
+                        "guardian.5@example.test",
                         "MAT-001",
                         "Padre",
                         "No",
@@ -256,9 +261,9 @@ class GuardianImportServiceTest {
                 ),
                 row(
                         "TUT-001",
-                        "José López",
-                        "7739999999",
-                        "jose@example.com",
+                        "José Ejemplo2",
+                        "5550000405",
+                        "guardian.5@example.test",
                         "MAT-002",
                         "Padre",
                         "No",
@@ -296,9 +301,9 @@ class GuardianImportServiceTest {
         MockMultipartFile file = workbookFile(List.of(
                 row(
                         "TUT-NUEVO",
-                        "José López",
-                        "7730000000",
-                        "jose@example.com",
+                        "José Ejemplo2",
+                        "5550000404",
+                        "guardian.5@example.test",
                         "MAT-001",
                         "Padre",
                         "Sí",
@@ -306,9 +311,9 @@ class GuardianImportServiceTest {
                 ),
                 row(
                         "TUT-EXISTE",
-                        "María Pérez",
-                        "7731234567",
-                        "maria@example.com",
+                        "Tutor de Prueba 4",
+                        "5550000403",
+                        "guardian.2@example.test",
                         "MAT-002",
                         "Madre",
                         "Sí",
@@ -340,6 +345,7 @@ class GuardianImportServiceTest {
                 30L,
                 relationshipCaptor.getValue().get(1).getGuardian().getId()
         );
+        verify(guardianAccountService).ensureAccounts(anyList());
     }
 
     @Test
@@ -347,7 +353,7 @@ class GuardianImportServiceTest {
         MockMultipartFile file = workbookFile(List.of(
                 row(
                         "TUT-001",
-                        "José López",
+                        "José Ejemplo2",
                         "",
                         "",
                         "MAT-001",

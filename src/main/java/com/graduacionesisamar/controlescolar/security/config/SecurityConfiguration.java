@@ -37,7 +37,9 @@ public class SecurityConfiguration {
                                 "/actuator/health",
                                 "/api/v1/auth/csrf",
                                 "/api/v1/auth/login",
+                                "/api/v1/guardian-auth/login",
                                 "/api/v1/guardian-device-enrollments/complete",
+                                "/api/v1/guardian-device-enrollments/status",
                                 "/error"
                         ).permitAll()
                         .requestMatchers("/api/v1/schools/**").hasRole("SUPER_ADMIN")

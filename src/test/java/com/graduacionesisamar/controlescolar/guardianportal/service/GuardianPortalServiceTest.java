@@ -23,6 +23,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -70,7 +71,7 @@ class GuardianPortalServiceTest {
         assertEquals(1, result.size());
         GuardianStudentResponse response = result.getFirst();
         assertEquals(30L, response.studentId());
-        assertEquals("Ana López", response.fullName());
+        assertEquals("Alumno2 Ejemplo2", response.fullName());
         assertEquals("2026 - 2027", response.academicCycleName());
         assertEquals("5to Semestre", response.gradeName());
         assertEquals("Grupo 1", response.groupName());
@@ -92,13 +93,8 @@ class GuardianPortalServiceTest {
                 "2026-10-01T00:00:00-06:00"
         );
 
-        when(accessEventRepository.findGuardianHistory(
-                eq(20L),
-                eq(10L),
-                eq(30L),
-                eq(AccessEventType.ENTRY),
-                eq(occurredFrom),
-                eq(occurredTo),
+        when(accessEventRepository.findAll(
+                org.mockito.ArgumentMatchers.<Specification<AccessEvent>>any(),
                 org.mockito.ArgumentMatchers.any(Pageable.class)
         )).thenReturn(new PageImpl<>(List.of(accessEvent)));
 
@@ -119,18 +115,17 @@ class GuardianPortalServiceTest {
         ArgumentCaptor<Pageable> pageableCaptor =
                 ArgumentCaptor.forClass(Pageable.class);
 
-        verify(accessEventRepository).findGuardianHistory(
-                eq(20L),
-                eq(10L),
-                eq(30L),
-                eq(AccessEventType.ENTRY),
-                eq(occurredFrom),
-                eq(occurredTo),
+        verify(accessEventRepository).findAll(
+                org.mockito.ArgumentMatchers.<Specification<AccessEvent>>any(),
                 pageableCaptor.capture()
         );
 
         assertEquals(0, pageableCaptor.getValue().getPageNumber());
         assertEquals(20, pageableCaptor.getValue().getPageSize());
+        assertEquals(
+                "occurredAt: DESC,id: DESC",
+                pageableCaptor.getValue().getSort().toString()
+        );
     }
 
     @Test
@@ -208,9 +203,10 @@ class GuardianPortalServiceTest {
         return new GuardianPrincipal(
                 1L,
                 guardianId,
+                null,
                 schoolId,
-                "María Pérez",
-                "Colegio San Felipe de Jesús",
+                "Tutor de Prueba 4",
+                "Escuela de Prueba 2",
                 OffsetDateTime.parse("2026-10-09T10:00:00-06:00")
         );
     }
@@ -218,7 +214,7 @@ class GuardianPortalServiceTest {
     private Student student(Long studentId, Long schoolId) {
         School school = new School();
         school.setId(schoolId);
-        school.setName("Colegio San Felipe de Jesús");
+        school.setName("Escuela de Prueba 2");
 
         AcademicCycle academicCycle = new AcademicCycle();
         academicCycle.setId(60L);
@@ -236,9 +232,9 @@ class GuardianPortalServiceTest {
         Student student = new Student();
         student.setId(studentId);
         student.setSchool(school);
-        student.setEnrollmentNumber("241130709010260");
-        student.setFirstName("Ana");
-        student.setLastName("López");
+        student.setEnrollmentNumber("MAT-TEST-001");
+        student.setFirstName("Alumno2");
+        student.setLastName("Ejemplo2");
         student.setSchoolGroup(schoolGroup);
         student.setActive(true);
         return student;
@@ -248,7 +244,7 @@ class GuardianPortalServiceTest {
         Guardian guardian = new Guardian();
         guardian.setId(20L);
         guardian.setSchool(student.getSchool());
-        guardian.setFullName("María Pérez");
+        guardian.setFullName("Tutor de Prueba 4");
 
         StudentGuardian relationship = new StudentGuardian();
         relationship.setStudent(student);

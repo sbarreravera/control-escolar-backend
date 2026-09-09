@@ -36,7 +36,7 @@ public class GuardianSession {
     @JoinColumn(name = "guardian_id", nullable = false)
     private Guardian guardian;
 
-    @Column(name = "guardian_device_id", nullable = false)
+    @Column(name = "guardian_device_id")
     private Long guardianDeviceId;
 
     @Column(

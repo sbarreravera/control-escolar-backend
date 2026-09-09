@@ -5,6 +5,7 @@ import com.graduacionesisamar.controlescolar.guardianactivation.dto.GuardianAcce
 import com.graduacionesisamar.controlescolar.guardianactivation.dto.GuardianActivationPageResponse;
 import com.graduacionesisamar.controlescolar.guardianactivation.dto.GuardianActivationSelectionResponse;
 import com.graduacionesisamar.controlescolar.guardianactivation.dto.GuardianInvitationBatchResponse;
+import com.graduacionesisamar.controlescolar.guardianactivation.dto.GuardianSessionAccessResponse;
 import com.graduacionesisamar.controlescolar.guardianactivation.dto.RevokeGuardianAccessRequest;
 import com.graduacionesisamar.controlescolar.guardianactivation.service.GuardianActivationAdministrationService;
 import com.graduacionesisamar.controlescolar.guardiandeviceenrollment.service.GuardianDeviceEnrollmentService;
@@ -18,8 +19,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 /**
  * Administrative guardian activation operations.
@@ -84,6 +88,29 @@ public class GuardianActivationController {
             @Valid @RequestBody CreateGuardianInvitationsRequest request
     ) {
         return enrollmentService.createBatch(request);
+    }
+
+    @PostMapping("/password-reset-invitations")
+    @ResponseStatus(HttpStatus.CREATED)
+    public GuardianInvitationBatchResponse createPasswordResetInvitations(
+            @Valid @RequestBody CreateGuardianInvitationsRequest request
+    ) {
+        return enrollmentService.createPasswordResetBatch(request);
+    }
+
+    @GetMapping("/{guardianId}/sessions")
+    public List<GuardianSessionAccessResponse> findActiveSessions(
+            @PathVariable Long guardianId
+    ) {
+        return administrationService.findActiveSessions(guardianId);
+    }
+
+    @PostMapping("/{guardianId}/sessions/{sessionId}/revoke")
+    public GuardianAccessRevocationResponse revokeSession(
+            @PathVariable Long guardianId,
+            @PathVariable Long sessionId
+    ) {
+        return administrationService.revokeSession(guardianId, sessionId);
     }
 
     @PostMapping("/revoke")

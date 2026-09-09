@@ -5,6 +5,7 @@ import com.graduacionesisamar.controlescolar.guardian.dto.GuardianResponse;
 import com.graduacionesisamar.controlescolar.guardian.dto.UpdateGuardianRequest;
 import com.graduacionesisamar.controlescolar.guardian.entity.Guardian;
 import com.graduacionesisamar.controlescolar.guardian.repository.GuardianRepository;
+import com.graduacionesisamar.controlescolar.guardianaccount.service.GuardianAccountService;
 import com.graduacionesisamar.controlescolar.school.entity.School;
 import com.graduacionesisamar.controlescolar.school.repository.SchoolRepository;
 import com.graduacionesisamar.controlescolar.security.service.SchoolAccessService;
@@ -37,6 +38,9 @@ class GuardianServiceTest {
     @Mock
     private SchoolAccessService schoolAccessService;
 
+    @Mock
+    private GuardianAccountService guardianAccountService;
+
     private GuardianService service;
     private School school;
 
@@ -45,12 +49,13 @@ class GuardianServiceTest {
         service = new GuardianService(
                 guardianRepository,
                 schoolRepository,
-                schoolAccessService
+                schoolAccessService,
+                guardianAccountService
         );
 
         school = new School();
         school.setId(10L);
-        school.setName("Colegio San Felipe de Jesús");
+        school.setName("Escuela de Prueba 2");
 
         lenient().when(schoolRepository.findById(10L))
                 .thenReturn(Optional.of(school));
@@ -61,9 +66,9 @@ class GuardianServiceTest {
         CreateGuardianRequest request = new CreateGuardianRequest(
                 10L,
                 "  tut-001  ",
-                "  María Pérez  ",
-                "  773 123 4567  ",
-                "  MARIA@EXAMPLE.COM  "
+                "  Tutor de Prueba 6de Prueba 4  ",
+                "  5550000401  ",
+                "  guardian.1@example.test  "
         );
 
         when(guardianRepository
@@ -82,10 +87,11 @@ class GuardianServiceTest {
         GuardianResponse response = service.create(request);
 
         assertEquals("TUT-001", response.externalReference());
-        assertEquals("María Pérez", response.fullName());
-        assertEquals("773 123 4567", response.phone());
-        assertEquals("maria@example.com", response.email());
+        assertEquals("Tutor de Prueba 4", response.fullName());
+        assertEquals("5550000401", response.phone());
+        assertEquals("guardian.2@example.test", response.email());
         verify(schoolAccessService).requireAccessToSchool(10L);
+        verify(guardianAccountService).ensureAccount(any(Guardian.class));
     }
 
     @Test
@@ -93,7 +99,7 @@ class GuardianServiceTest {
         CreateGuardianRequest request = new CreateGuardianRequest(
                 10L,
                 "TUT-001",
-                "María Pérez",
+                "Tutor de Prueba 4",
                 null,
                 null
         );
@@ -120,12 +126,12 @@ class GuardianServiceTest {
         guardian.setId(20L);
         guardian.setSchool(school);
         guardian.setExternalReference("TUT-PRUEBA-001");
-        guardian.setFullName("Samuel Barrera Vera");
+        guardian.setFullName("Tutor de Prueba 2");
 
         UpdateGuardianRequest request = new UpdateGuardianRequest(
-                "  Samuel Barrera Vera  ",
-                "  7737361800  ",
-                "  TRIPLE_SEVEN_SAM@HOTMAIL.COM  "
+                "  Tutor de Prueba 6de Prueba 2  ",
+                "  5550000402  ",
+                "  guardian.3@example.test  "
         );
 
         when(guardianRepository.findById(20L))
@@ -136,9 +142,9 @@ class GuardianServiceTest {
         GuardianResponse response = service.update(20L, request);
 
         assertEquals("TUT-PRUEBA-001", response.externalReference());
-        assertEquals("Samuel Barrera Vera", response.fullName());
-        assertEquals("7737361800", response.phone());
-        assertEquals("triple_seven_sam@hotmail.com", response.email());
+        assertEquals("Tutor de Prueba 2", response.fullName());
+        assertEquals("5550000402", response.phone());
+        assertEquals("guardian.4@example.test", response.email());
         verify(schoolAccessService).requireAccessToSchool(10L);
         verify(guardianRepository).save(guardian);
     }
@@ -146,7 +152,7 @@ class GuardianServiceTest {
     @Test
     void updateRejectsAnUnknownGuardian() {
         UpdateGuardianRequest request = new UpdateGuardianRequest(
-                "Samuel Barrera Vera",
+                "Tutor de Prueba 2",
                 null,
                 null
         );

@@ -4,12 +4,15 @@ import com.graduacionesisamar.controlescolar.academiccycle.entity.AcademicCycle;
 import com.graduacionesisamar.controlescolar.academiccycle.repository.AcademicCycleRepository;
 import com.graduacionesisamar.controlescolar.guardian.entity.Guardian;
 import com.graduacionesisamar.controlescolar.guardian.repository.GuardianRepository;
+import com.graduacionesisamar.controlescolar.guardianaccount.entity.GuardianAccount;
+import com.graduacionesisamar.controlescolar.guardianaccount.repository.GuardianAccountRepository;
 import com.graduacionesisamar.controlescolar.guardianactivation.dto.GuardianAccessRevocationResponse;
 import com.graduacionesisamar.controlescolar.guardianactivation.dto.GuardianActivationPageResponse;
 import com.graduacionesisamar.controlescolar.guardianactivation.dto.GuardianActivationSelectionResponse;
 import com.graduacionesisamar.controlescolar.guardianactivation.dto.GuardianActivationStatusResponse;
 import com.graduacionesisamar.controlescolar.guardianactivation.dto.GuardianActivationStudentResponse;
 import com.graduacionesisamar.controlescolar.guardianactivation.dto.GuardianActivationSummaryResponse;
+import com.graduacionesisamar.controlescolar.guardianactivation.dto.GuardianSessionAccessResponse;
 import com.graduacionesisamar.controlescolar.guardianactivation.dto.RevokeGuardianAccessRequest;
 import com.graduacionesisamar.controlescolar.guardiandevice.entity.GuardianDevice;
 import com.graduacionesisamar.controlescolar.guardiandevice.repository.GuardianDeviceRepository;
@@ -54,6 +57,7 @@ public class GuardianActivationAdministrationService {
     private final AcademicCycleRepository academicCycleRepository;
     private final StudentGuardianRepository studentGuardianRepository;
     private final SchoolAccessService schoolAccessService;
+    private final GuardianAccountRepository guardianAccountRepository;
 
     @Transactional(readOnly = true)
     public GuardianActivationPageResponse findPage(
@@ -185,6 +189,13 @@ public class GuardianActivationAdministrationService {
                         .collect(Collectors.groupingBy(
                                 item -> item.getGuardian().getId()
                         ));
+        Map<Long, GuardianAccount> accountsByGuardian =
+                guardianAccountRepository.findAllByGuardian_IdIn(guardianIds)
+                        .stream()
+                        .collect(Collectors.toMap(
+                                item -> item.getGuardian().getId(),
+                                item -> item
+                        ));
         Map<Long, List<GuardianActivationStudentResponse>> studentsByGuardian =
                 studentGuardianRepository.findForGuardianSummaries(
                                 guardianIds,
@@ -203,6 +214,7 @@ public class GuardianActivationAdministrationService {
         return guardians.stream()
                 .map(guardian -> toStatus(
                         guardian,
+                        accountsByGuardian.get(guardian.getId()),
                         enrollmentByGuardian.getOrDefault(
                                 guardian.getId(),
                                 List.of()
@@ -231,10 +243,12 @@ public class GuardianActivationAdministrationService {
                 statuses.size(),
                 countState(statuses, "NOT_INVITED"),
                 countState(statuses, "PENDING"),
-                countState(statuses, "ACTIVE"),
+                statuses.stream()
+                        .filter(GuardianActivationStatusResponse::accountActivated)
+                        .count(),
                 statuses.stream()
                         .filter(GuardianActivationStatusResponse::guardianActive)
-                        .filter(item -> !"ACTIVE".equals(item.activationState()))
+                        .filter(item -> !item.accountActivated())
                         .count(),
                 statuses.stream()
                         .filter(item -> isBlank(item.phone()))
@@ -258,7 +272,7 @@ public class GuardianActivationAdministrationService {
     ) {
         return switch (state) {
             case "ALL" -> true;
-            case "ACTIVE" -> "ACTIVE".equals(status.activationState());
+            case "ACTIVE" -> status.accountActivated();
             case "PENDING" -> "PENDING".equals(status.activationState());
             case "NOT_INVITED" -> "NOT_INVITED".equals(
                     status.activationState()
@@ -269,7 +283,7 @@ public class GuardianActivationAdministrationService {
                     "ACCESS_REVOKED"
             ).contains(status.activationState());
             case "NOT_ACTIVE" -> status.guardianActive()
-                    && !"ACTIVE".equals(status.activationState());
+                    && !status.accountActivated();
             default -> throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Unknown activation state filter"
@@ -330,6 +344,7 @@ public class GuardianActivationAdministrationService {
 
     private GuardianActivationStatusResponse toStatus(
             Guardian guardian,
+            GuardianAccount account,
             List<GuardianDeviceEnrollment> enrollments,
             List<GuardianSession> sessions,
             List<GuardianDevice> devices,
@@ -363,9 +378,12 @@ public class GuardianActivationAdministrationService {
                 guardian.getFullName(),
                 guardian.getPhone(),
                 guardian.getEmail(),
+                account == null ? null : account.getUsername(),
+                account != null && account.isActivated(),
                 Boolean.TRUE.equals(guardian.getActive()),
                 resolveState(
                         guardian,
+                        account,
                         latest,
                         activeSessions,
                         now
@@ -396,6 +414,7 @@ public class GuardianActivationAdministrationService {
 
     private String resolveState(
             Guardian guardian,
+            GuardianAccount account,
             GuardianDeviceEnrollment latest,
             int activeSessions,
             OffsetDateTime now
@@ -406,6 +425,10 @@ public class GuardianActivationAdministrationService {
 
         if (activeSessions > 0) {
             return "ACTIVE";
+        }
+
+        if (account != null && account.isActivated()) {
+            return "ACCOUNT_READY";
         }
 
         if (latest == null) {
@@ -425,6 +448,108 @@ public class GuardianActivationAdministrationService {
         }
 
         return "PENDING";
+    }
+
+    @Transactional(readOnly = true)
+    public List<GuardianSessionAccessResponse> findActiveSessions(
+            Long guardianId
+    ) {
+        Guardian guardian = findGuardianForAdministration(guardianId);
+        schoolAccessService.requireAccessToSchool(
+                guardian.getSchool().getId()
+        );
+
+        OffsetDateTime now = OffsetDateTime.now();
+        Set<Long> activeDeviceIds = guardianDeviceRepository
+                .findAllByGuardian_IdAndActiveTrueOrderByRegisteredAtDesc(
+                        guardianId
+                )
+                .stream()
+                .map(GuardianDevice::getId)
+                .collect(Collectors.toSet());
+
+        return guardianSessionRepository
+                .findAllByGuardian_IdAndRevokedAtIsNullOrderByCreatedAtDesc(
+                        guardianId
+                )
+                .stream()
+                .filter(session -> session.getExpiresAt().isAfter(now))
+                .map(session -> new GuardianSessionAccessResponse(
+                        session.getId(),
+                        session.getDeviceName(),
+                        session.getGuardianDeviceId() != null
+                                && activeDeviceIds.contains(
+                                session.getGuardianDeviceId()
+                        ),
+                        session.getCreatedAt(),
+                        session.getLastUsedAt(),
+                        session.getExpiresAt()
+                ))
+                .toList();
+    }
+
+    public GuardianAccessRevocationResponse revokeSession(
+            Long guardianId,
+            Long sessionId
+    ) {
+        Guardian guardian = findGuardianForAdministration(guardianId);
+        schoolAccessService.requireAccessToSchool(
+                guardian.getSchool().getId()
+        );
+
+        GuardianSession selected = guardianSessionRepository
+                .findByIdAndGuardian_Id(sessionId, guardianId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Guardian session not found"
+                ));
+        OffsetDateTime now = OffsetDateTime.now();
+        Set<GuardianSession> sessionsToRevoke = new HashSet<>();
+        if (selected.getRevokedAt() == null
+                && selected.getExpiresAt().isAfter(now)) {
+            sessionsToRevoke.add(selected);
+        }
+
+        int devicesDeactivated = 0;
+        if (selected.getGuardianDeviceId() != null) {
+            guardianSessionRepository
+                    .findAllByGuardianDeviceIdAndRevokedAtIsNull(
+                            selected.getGuardianDeviceId()
+                    )
+                    .stream()
+                    .filter(session -> session.getExpiresAt().isAfter(now))
+                    .forEach(sessionsToRevoke::add);
+
+            GuardianDevice device = guardianDeviceRepository
+                    .findByIdAndGuardian_Id(
+                            selected.getGuardianDeviceId(),
+                            guardianId
+                    )
+                    .orElse(null);
+            if (device != null && device.isActive()) {
+                device.setActive(false);
+                guardianDeviceRepository.save(device);
+                devicesDeactivated = 1;
+            }
+        }
+
+        sessionsToRevoke.forEach(session -> session.setRevokedAt(now));
+        guardianSessionRepository.saveAll(sessionsToRevoke);
+
+        return new GuardianAccessRevocationResponse(
+                1,
+                0,
+                sessionsToRevoke.size(),
+                devicesDeactivated
+        );
+    }
+
+    private Guardian findGuardianForAdministration(Long guardianId) {
+        return guardianRepository.findById(guardianId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Guardian not found"
+                ));
     }
 
     private List<Long> distinctIds(List<Long> guardianIds) {
