@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Handles business operations related to guardians.
@@ -34,7 +35,16 @@ public class GuardianService {
         schoolAccessService.requireAccessToSchool(request.schoolId());
         School school = findSchool(request.schoolId());
 
-        Guardian guardian = buildGuardian(request, school);
+        String externalReference = normalizeExternalReference(
+                request.externalReference()
+        );
+        validateExternalReference(request.schoolId(), externalReference);
+
+        Guardian guardian = buildGuardian(
+                request,
+                school,
+                externalReference
+        );
         Guardian savedGuardian = guardianRepository.save(guardian);
 
         return toResponse(savedGuardian);
@@ -83,10 +93,12 @@ public class GuardianService {
 
     private Guardian buildGuardian(
             CreateGuardianRequest request,
-            School school
+            School school,
+            String externalReference
     ) {
         Guardian guardian = new Guardian();
         guardian.setSchool(school);
+        guardian.setExternalReference(externalReference);
         guardian.setFullName(request.fullName().trim());
         guardian.setPhone(trimNullable(request.phone()));
         guardian.setEmail(normalizeEmail(request.email()));
@@ -108,11 +120,40 @@ public class GuardianService {
                 : normalizedEmail.toLowerCase();
     }
 
+    private String normalizeExternalReference(String value) {
+        String normalized = trimNullable(value);
+        return normalized == null
+                ? null
+                : normalized.replaceAll("\\s+", " ")
+                        .toUpperCase(Locale.ROOT);
+    }
+
+    private void validateExternalReference(
+            Long schoolId,
+            String externalReference
+    ) {
+        if (externalReference == null) {
+            return;
+        }
+
+        if (guardianRepository
+                .existsBySchool_IdAndExternalReferenceIgnoreCase(
+                        schoolId,
+                        externalReference
+                )) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Guardian external reference already exists"
+            );
+        }
+    }
+
     private GuardianResponse toResponse(Guardian guardian) {
         return new GuardianResponse(
                 guardian.getId(),
                 guardian.getSchool().getId(),
                 guardian.getSchool().getName(),
+                guardian.getExternalReference(),
                 guardian.getFullName(),
                 guardian.getPhone(),
                 guardian.getEmail(),
