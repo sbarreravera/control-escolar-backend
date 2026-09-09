@@ -3,6 +3,7 @@ package com.graduacionesisamar.controlescolar.guardianactivation.controller;
 import com.graduacionesisamar.controlescolar.guardianactivation.dto.CreateGuardianInvitationsRequest;
 import com.graduacionesisamar.controlescolar.guardianactivation.dto.GuardianAccessRevocationResponse;
 import com.graduacionesisamar.controlescolar.guardianactivation.dto.GuardianActivationPageResponse;
+import com.graduacionesisamar.controlescolar.guardianactivation.dto.GuardianActivationSelectionResponse;
 import com.graduacionesisamar.controlescolar.guardianactivation.dto.GuardianInvitationBatchResponse;
 import com.graduacionesisamar.controlescolar.guardianactivation.dto.RevokeGuardianAccessRequest;
 import com.graduacionesisamar.controlescolar.guardianactivation.service.GuardianActivationAdministrationService;
@@ -37,14 +38,43 @@ public class GuardianActivationController {
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "25") @Min(1) @Max(100) int size,
             @RequestParam(defaultValue = "") String search,
-            @RequestParam(defaultValue = "NOT_ACTIVE") String state
+            @RequestParam(defaultValue = "NOT_ACTIVE") String state,
+            @RequestParam Long academicCycleId,
+            @RequestParam(required = false) Long schoolGroupId,
+            @RequestParam(defaultValue = "") String gradeName,
+            @RequestParam(defaultValue = "ALL") String contact
     ) {
         return administrationService.findPage(
                 schoolId,
                 page,
                 size,
                 search,
-                state
+                state,
+                academicCycleId,
+                schoolGroupId,
+                gradeName,
+                contact
+        );
+    }
+
+    @GetMapping("/selection")
+    public GuardianActivationSelectionResponse findSelection(
+            @RequestParam Long schoolId,
+            @RequestParam(defaultValue = "") String search,
+            @RequestParam(defaultValue = "NOT_ACTIVE") String state,
+            @RequestParam Long academicCycleId,
+            @RequestParam(required = false) Long schoolGroupId,
+            @RequestParam(defaultValue = "") String gradeName,
+            @RequestParam(defaultValue = "ALL") String contact
+    ) {
+        return administrationService.findSelection(
+                schoolId,
+                search,
+                state,
+                academicCycleId,
+                schoolGroupId,
+                gradeName,
+                contact
         );
     }
 
