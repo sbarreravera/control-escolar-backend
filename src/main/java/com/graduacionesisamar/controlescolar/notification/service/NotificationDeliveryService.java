@@ -140,7 +140,10 @@ public class NotificationDeliveryService {
                         "occurredAt",
                         notification.getAccessEvent()
                                 .getOccurredAt()
-                                .toString()
+                                .toString(),
+                        "route",
+                        "/#/guardian?eventId="
+                                + notification.getAccessEvent().getId()
                 )
         );
     }
