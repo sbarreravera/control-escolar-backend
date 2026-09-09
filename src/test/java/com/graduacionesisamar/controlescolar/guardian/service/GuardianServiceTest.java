@@ -66,7 +66,7 @@ class GuardianServiceTest {
         CreateGuardianRequest request = new CreateGuardianRequest(
                 10L,
                 "  tut-001  ",
-                "  Tutor de Prueba 6de Prueba 4  ",
+                "  Tutor de Prueba 4  ",
                 "  5550000401  ",
                 "  guardian.1@example.test  "
         );
@@ -89,7 +89,7 @@ class GuardianServiceTest {
         assertEquals("TUT-001", response.externalReference());
         assertEquals("Tutor de Prueba 4", response.fullName());
         assertEquals("5550000401", response.phone());
-        assertEquals("guardian.2@example.test", response.email());
+        assertEquals("guardian.1@example.test", response.email());
         verify(schoolAccessService).requireAccessToSchool(10L);
         verify(guardianAccountService).ensureAccount(any(Guardian.class));
     }
@@ -129,7 +129,7 @@ class GuardianServiceTest {
         guardian.setFullName("Tutor de Prueba 2");
 
         UpdateGuardianRequest request = new UpdateGuardianRequest(
-                "  Tutor de Prueba 6de Prueba 2  ",
+                "  Tutor de Prueba 2  ",
                 "  5550000402  ",
                 "  guardian.3@example.test  "
         );
@@ -144,7 +144,7 @@ class GuardianServiceTest {
         assertEquals("TUT-PRUEBA-001", response.externalReference());
         assertEquals("Tutor de Prueba 2", response.fullName());
         assertEquals("5550000402", response.phone());
-        assertEquals("guardian.4@example.test", response.email());
+        assertEquals("guardian.3@example.test", response.email());
         verify(schoolAccessService).requireAccessToSchool(10L);
         verify(guardianRepository).save(guardian);
     }

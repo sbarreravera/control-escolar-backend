@@ -112,7 +112,7 @@ class GuardianImportServiceTest {
         GuardianImportTemplate template = service.generateTemplate(10L);
 
         assertEquals(
-                "carga-tutores-relaciones-colegio-san-felipe-de-jesus.xlsx",
+                "carga-tutores-relaciones-escuela-de-prueba-2.xlsx",
                 template.fileName()
         );
 
@@ -161,7 +161,7 @@ class GuardianImportServiceTest {
                         "TUT-NUEVO",
                         "José Ejemplo2",
                         "5550000404",
-                        "guardian.6@example.test",
+                        "guardian.5@example.test",
                         "MAT-002",
                         "Padre",
                         "Sí",

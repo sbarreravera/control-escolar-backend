@@ -231,7 +231,7 @@ class GuardianDeviceEnrollmentServiceTest {
                 new CompleteGuardianDeviceEnrollmentRequest(
                         enrollmentToken,
                         "fcm-token-1",
-                        "Teléfono de Tutor de Prueba 6Uno",
+                        "Teléfono de prueba",
                         null
                 );
 
@@ -239,7 +239,7 @@ class GuardianDeviceEnrollmentServiceTest {
                 new GuardianDeviceResponse(
                         50L,
                         1L,
-                        "Teléfono de Tutor de Prueba 6Uno",
+                        "Teléfono de prueba",
                         true,
                         OffsetDateTime.now(),
                         null
@@ -262,7 +262,7 @@ class GuardianDeviceEnrollmentServiceTest {
         when(guardianSessionService.issue(
                 guardian,
                 50L,
-                "Teléfono de Tutor de Prueba 6Uno"
+                "Teléfono de prueba"
         )).thenReturn(new IssuedGuardianSession(
                 "guardian-session-token",
                 sessionExpiresAt
@@ -287,7 +287,7 @@ class GuardianDeviceEnrollmentServiceTest {
 
         assertEquals("fcm-token-1", registrationRequest.fcmToken());
         assertEquals(
-                "Teléfono de Tutor de Prueba 6Uno",
+                "Teléfono de prueba",
                 registrationRequest.deviceName()
         );
 
