@@ -9,6 +9,7 @@ public record GuardianResponse(
         Long id,
         Long schoolId,
         String schoolName,
+        String externalReference,
         String fullName,
         String phone,
         String email,

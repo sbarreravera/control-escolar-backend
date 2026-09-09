@@ -36,6 +36,9 @@ public class Guardian {
     @JoinColumn(name = "school_id", nullable = false)
     private School school;
 
+    @Column(name = "external_reference", length = 50)
+    private String externalReference;
+
     @Column(name = "full_name", nullable = false, length = 150)
     private String fullName;
 

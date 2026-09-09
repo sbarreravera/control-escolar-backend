@@ -28,4 +28,6 @@ public interface StudentGuardianRepository
     findAllByStudent_IdAndReceivesNotificationsTrueAndGuardian_ActiveTrueOrderByPrimaryContactDescGuardian_FullNameAsc(
         Long studentId
     );
+
+    List<StudentGuardian> findAllByStudent_School_Id(Long schoolId);
 }
