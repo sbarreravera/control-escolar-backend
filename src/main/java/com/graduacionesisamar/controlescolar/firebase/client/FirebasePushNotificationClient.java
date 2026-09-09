@@ -4,13 +4,15 @@ import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.Message;
 import com.google.firebase.messaging.MessagingErrorCode;
-import com.google.firebase.messaging.Notification;
 import com.graduacionesisamar.controlescolar.notification.client.PushNotificationClient;
 import com.graduacionesisamar.controlescolar.notification.dto.PushNotificationRequest;
 import com.graduacionesisamar.controlescolar.notification.exception.PushNotificationException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
+
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Sends push notifications through Firebase Cloud Messaging.
@@ -29,15 +31,13 @@ public class FirebasePushNotificationClient
 
     @Override
     public String send(PushNotificationRequest request) {
+        Map<String, String> data = new HashMap<>(request.data());
+        data.put("title", request.title());
+        data.put("body", request.body());
+
         Message message = Message.builder()
                 .setToken(request.token())
-                .setNotification(
-                        Notification.builder()
-                                .setTitle(request.title())
-                                .setBody(request.body())
-                                .build()
-                )
-                .putAllData(request.data())
+                .putAllData(data)
                 .build();
 
         try {
