@@ -518,3 +518,92 @@ Nginx
            │
            ▼
       PostgreSQL
+```
+
+Componentes previstos:
+
+- Angular y CoreUI para el frontend.
+- Spring Boot como API REST.
+- PostgreSQL como base de datos.
+- Nginx como servidor web y reverse proxy.
+- Docker Compose para ejecución y despliegue.
+- Firebase Cloud Messaging para notificaciones push.
+- Certificados TLS mediante Let's Encrypt.
+
+Subdominios previstos:
+
+```text
+escolar.graduacionesisamar.com
+api-escolar.graduacionesisamar.com
+```
+
+---
+
+## Roadmap
+
+### Fase 1: base operativa
+
+- [x] Configuración del proyecto.
+- [x] PostgreSQL y Flyway.
+- [x] Módulo de escuelas.
+- [x] Módulo inicial de alumnos.
+- [ ] Módulo de tutores.
+- [ ] Relación alumno-tutor.
+- [ ] Credenciales QR.
+- [ ] Registro de entradas y salidas.
+
+### Fase 2: notificaciones
+
+- [ ] Registro de dispositivos.
+- [ ] Integración con Firebase.
+- [ ] Envío de notificaciones.
+- [ ] Historial y reintentos.
+
+### Fase 3: operación escolar
+
+- [ ] Importación desde Excel.
+- [ ] Administración de usuarios.
+- [ ] Roles y permisos.
+- [ ] Reportes.
+- [ ] Dashboard.
+
+### Fase 4: producción
+
+- [ ] Pruebas automatizadas.
+- [ ] OpenAPI/Swagger.
+- [ ] Docker Compose.
+- [ ] Nginx y HTTPS.
+- [ ] Monitoreo y respaldos.
+- [ ] Despliegue en VPS.
+
+---
+
+## Repositorios relacionados
+
+Frontend:
+
+```text
+https://github.com/sbarreravera/control-escolar-frontend
+```
+
+Backend:
+
+```text
+https://github.com/sbarreravera/control-escolar-backend
+```
+
+---
+
+## Licencia
+
+Este repositorio no incluye actualmente una licencia de uso.
+
+Hasta que se agregue una licencia explícita, el código se considera de uso reservado por su propietario. Las dependencias utilizadas conservan sus respectivas licencias.
+
+---
+
+## Autor
+
+**Samuel Barrera Vera**
+
+Proyecto en desarrollo para la administración y control de accesos escolares.
