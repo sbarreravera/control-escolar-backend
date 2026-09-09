@@ -3,6 +3,7 @@ package com.graduacionesisamar.controlescolar.guardianactivation.service;
 import com.graduacionesisamar.controlescolar.guardian.entity.Guardian;
 import com.graduacionesisamar.controlescolar.guardian.repository.GuardianRepository;
 import com.graduacionesisamar.controlescolar.guardianactivation.dto.GuardianAccessRevocationResponse;
+import com.graduacionesisamar.controlescolar.guardianactivation.dto.GuardianActivationPageResponse;
 import com.graduacionesisamar.controlescolar.guardianactivation.dto.GuardianActivationStatusResponse;
 import com.graduacionesisamar.controlescolar.guardianactivation.dto.RevokeGuardianAccessRequest;
 import com.graduacionesisamar.controlescolar.guardiandevice.entity.GuardianDevice;
@@ -82,14 +83,49 @@ class GuardianActivationAdministrationServiceTest {
                 .findAllByGuardian_School_Id(10L))
                 .thenReturn(List.of(device));
 
-        List<GuardianActivationStatusResponse> statuses =
-                service.findAll(10L);
+        GuardianActivationPageResponse page = service.findPage(
+                10L, 0, 25, "", "ALL"
+        );
+        List<GuardianActivationStatusResponse> statuses = page.content();
 
         assertEquals(1, statuses.size());
+        assertEquals(1, page.totalElements());
         assertEquals("ACTIVE", statuses.getFirst().activationState());
         assertEquals(1, statuses.getFirst().activeSessions());
         assertEquals(1, statuses.getFirst().activeDevices());
         verify(schoolAccessService).requireAccessToSchool(10L);
+    }
+
+    @Test
+    void findPageFiltersBeforeApplyingPagination() {
+        Guardian first = createGuardian(1L);
+        first.setFullName("Ana López");
+        Guardian second = createGuardian(2L);
+        second.setFullName("Bruno Pérez");
+
+        when(schoolRepository.existsById(10L)).thenReturn(true);
+        when(guardianRepository.findAllBySchool_IdOrderByFullNameAsc(10L))
+                .thenReturn(List.of(first, second));
+        when(enrollmentRepository
+                .findAllByGuardian_School_IdOrderByCreatedAtDesc(10L))
+                .thenReturn(List.of());
+        when(guardianSessionRepository
+                .findAllByGuardian_School_Id(10L))
+                .thenReturn(List.of());
+        when(guardianDeviceRepository
+                .findAllByGuardian_School_Id(10L))
+                .thenReturn(List.of());
+
+        GuardianActivationPageResponse page = service.findPage(
+                10L, 0, 1, "bruno", "NOT_ACTIVE"
+        );
+
+        assertEquals(1, page.content().size());
+        assertEquals(2L, page.content().getFirst().guardianId());
+        assertEquals(1, page.totalElements());
+        assertEquals(1, page.totalPages());
+        assertTrue(page.first());
+        assertTrue(page.last());
     }
 
     @Test

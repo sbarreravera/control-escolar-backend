@@ -3,6 +3,7 @@ package com.graduacionesisamar.controlescolar.guardianactivation.service;
 import com.graduacionesisamar.controlescolar.guardian.entity.Guardian;
 import com.graduacionesisamar.controlescolar.guardian.repository.GuardianRepository;
 import com.graduacionesisamar.controlescolar.guardianactivation.dto.GuardianAccessRevocationResponse;
+import com.graduacionesisamar.controlescolar.guardianactivation.dto.GuardianActivationPageResponse;
 import com.graduacionesisamar.controlescolar.guardianactivation.dto.GuardianActivationStatusResponse;
 import com.graduacionesisamar.controlescolar.guardianactivation.dto.RevokeGuardianAccessRequest;
 import com.graduacionesisamar.controlescolar.guardiandevice.entity.GuardianDevice;
@@ -23,6 +24,7 @@ import java.time.OffsetDateTime;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -43,8 +45,12 @@ public class GuardianActivationAdministrationService {
     private final SchoolAccessService schoolAccessService;
 
     @Transactional(readOnly = true)
-    public List<GuardianActivationStatusResponse> findAll(
-            Long schoolId
+    public GuardianActivationPageResponse findPage(
+            Long schoolId,
+            int page,
+            int size,
+            String search,
+            String state
     ) {
         schoolAccessService.requireAccessToSchool(schoolId);
         requireSchool(schoolId);
@@ -76,7 +82,7 @@ public class GuardianActivationAdministrationService {
 
         OffsetDateTime now = OffsetDateTime.now();
 
-        return guardians.stream()
+        List<GuardianActivationStatusResponse> filtered = guardians.stream()
                 .map(guardian -> toStatus(
                         guardian,
                         enrollmentByGuardian.getOrDefault(
@@ -93,7 +99,64 @@ public class GuardianActivationAdministrationService {
                         ),
                         now
                 ))
+                .filter(status -> matchesSearch(status, search))
+                .filter(status -> matchesState(status, state))
                 .toList();
+
+        int fromIndex = Math.min(page * size, filtered.size());
+        int toIndex = Math.min(fromIndex + size, filtered.size());
+        int totalPages = filtered.isEmpty()
+                ? 0
+                : (filtered.size() + size - 1) / size;
+
+        return new GuardianActivationPageResponse(
+                filtered.subList(fromIndex, toIndex),
+                page,
+                size,
+                filtered.size(),
+                totalPages,
+                page == 0,
+                page >= totalPages - 1
+        );
+    }
+
+    private boolean matchesSearch(
+            GuardianActivationStatusResponse status,
+            String search
+    ) {
+        String normalized = search == null
+                ? ""
+                : search.trim().toLowerCase(Locale.ROOT);
+        if (normalized.isEmpty()) {
+            return true;
+        }
+        return List.of(
+                status.guardianName(),
+                status.externalReference() == null ? "" : status.externalReference(),
+                status.phone() == null ? "" : status.phone(),
+                status.email() == null ? "" : status.email()
+        ).stream().anyMatch(value -> value.toLowerCase(Locale.ROOT)
+                .contains(normalized));
+    }
+
+    private boolean matchesState(
+            GuardianActivationStatusResponse status,
+            String state
+    ) {
+        String normalized = state == null
+                ? "NOT_ACTIVE"
+                : state.trim().toUpperCase(Locale.ROOT);
+        return switch (normalized) {
+            case "ALL" -> true;
+            case "ACTIVE" -> "ACTIVE".equals(status.activationState());
+            case "PENDING" -> "PENDING".equals(status.activationState());
+            case "NOT_ACTIVE" -> status.guardianActive()
+                    && !"ACTIVE".equals(status.activationState());
+            default -> throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Unknown activation state filter"
+            );
+        };
     }
 
     public GuardianAccessRevocationResponse revoke(
