@@ -126,6 +126,10 @@ class NotificationDeliveryServiceTest {
                 .toString(),
             request.data().get("occurredAt")
         );
+        assertEquals(
+                "/#/guardian?eventId=200",
+                request.data().get("route")
+        );
 
         verify(guardianDeviceRepository)
                 .saveAll(List.of(device));
