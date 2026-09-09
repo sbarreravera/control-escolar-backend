@@ -2,6 +2,8 @@ package com.graduacionesisamar.controlescolar.guardiandeviceenrollment.service;
 
 import com.graduacionesisamar.controlescolar.guardian.entity.Guardian;
 import com.graduacionesisamar.controlescolar.guardian.repository.GuardianRepository;
+import com.graduacionesisamar.controlescolar.guardianaccount.entity.GuardianAccount;
+import com.graduacionesisamar.controlescolar.guardianaccount.service.GuardianAccountService;
 import com.graduacionesisamar.controlescolar.guardianactivation.dto.CreateGuardianInvitationsRequest;
 import com.graduacionesisamar.controlescolar.guardianactivation.dto.GuardianInvitationBatchResponse;
 import com.graduacionesisamar.controlescolar.guardianactivation.dto.GuardianInvitationResponse;
@@ -11,7 +13,9 @@ import com.graduacionesisamar.controlescolar.guardiandevice.service.GuardianDevi
 import com.graduacionesisamar.controlescolar.guardiandeviceenrollment.dto.CompleteGuardianDeviceEnrollmentRequest;
 import com.graduacionesisamar.controlescolar.guardiandeviceenrollment.dto.CompleteGuardianDeviceEnrollmentResponse;
 import com.graduacionesisamar.controlescolar.guardiandeviceenrollment.dto.CreateGuardianDeviceEnrollmentResponse;
+import com.graduacionesisamar.controlescolar.guardiandeviceenrollment.dto.GuardianInvitationStatusResponse;
 import com.graduacionesisamar.controlescolar.guardiandeviceenrollment.entity.GuardianDeviceEnrollment;
+import com.graduacionesisamar.controlescolar.guardiandeviceenrollment.entity.GuardianEnrollmentPurpose;
 import com.graduacionesisamar.controlescolar.guardiandeviceenrollment.repository.GuardianDeviceEnrollmentRepository;
 import com.graduacionesisamar.controlescolar.guardiansession.service.GuardianSessionService;
 import com.graduacionesisamar.controlescolar.guardiansession.service.IssuedGuardianSession;
@@ -53,6 +57,7 @@ public class GuardianDeviceEnrollmentService {
     private final GuardianDeviceService guardianDeviceService;
     private final GuardianSessionService guardianSessionService;
     private final SchoolAccessService schoolAccessService;
+    private final GuardianAccountService guardianAccountService;
 
     private final SecureRandom secureRandom = new SecureRandom();
 
@@ -69,6 +74,9 @@ public class GuardianDeviceEnrollmentService {
         );
 
         validateActive(guardian);
+        GuardianAccount account = guardianAccountService.ensureAccount(
+                guardian
+        );
 
         UUID batchId = UUID.randomUUID();
         OffsetDateTime now = OffsetDateTime.now();
@@ -77,12 +85,21 @@ public class GuardianDeviceEnrollmentService {
         revokePreviousInvitations(List.of(guardianId), now);
 
         GuardianInvitationResponse invitation =
-                createInvitation(guardian, batchId, expiresAt);
+                createInvitation(
+                        guardian,
+                        account,
+                        batchId,
+                        expiresAt,
+                        GuardianEnrollmentPurpose.ACTIVATION
+                );
 
         return new CreateGuardianDeviceEnrollmentResponse(
                 invitation.guardianId(),
                 invitation.guardianName(),
                 invitation.schoolName(),
+                invitation.schoolCode(),
+                invitation.username(),
+                invitation.purpose(),
                 invitation.enrollmentToken(),
                 invitation.expiresAt()
         );
@@ -93,6 +110,19 @@ public class GuardianDeviceEnrollmentService {
      */
     public GuardianInvitationBatchResponse createBatch(
             CreateGuardianInvitationsRequest request
+    ) {
+        return createBatch(request, GuardianEnrollmentPurpose.ACTIVATION);
+    }
+
+    public GuardianInvitationBatchResponse createPasswordResetBatch(
+            CreateGuardianInvitationsRequest request
+    ) {
+        return createBatch(request, GuardianEnrollmentPurpose.PASSWORD_RESET);
+    }
+
+    private GuardianInvitationBatchResponse createBatch(
+            CreateGuardianInvitationsRequest request,
+            GuardianEnrollmentPurpose purpose
     ) {
         schoolAccessService.requireAccessToSchool(request.schoolId());
 
@@ -111,6 +141,13 @@ public class GuardianDeviceEnrollmentService {
         }
 
         guardians.forEach(this::validateActive);
+        var accountsByGuardian = guardianAccountService
+                .ensureAccounts(guardians)
+                .stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        account -> account.getGuardian().getId(),
+                        account -> account
+                ));
 
         UUID batchId = UUID.randomUUID();
         OffsetDateTime now = OffsetDateTime.now();
@@ -124,8 +161,10 @@ public class GuardianDeviceEnrollmentService {
         for (Guardian guardian : guardians) {
             invitations.add(createInvitation(
                     guardian,
+                    accountsByGuardian.get(guardian.getId()),
                     batchId,
-                    expiresAt
+                    expiresAt,
+                    purpose
             ));
         }
 
@@ -138,7 +177,8 @@ public class GuardianDeviceEnrollmentService {
     }
 
     /**
-     * Consumes an invitation, registers FCM and issues an opaque session.
+     * Consumes an invitation, configures credentials when required,
+     * optionally registers FCM and issues an opaque session.
      */
     public CompletedGuardianEnrollment complete(
             CompleteGuardianDeviceEnrollmentRequest request
@@ -156,19 +196,45 @@ public class GuardianDeviceEnrollmentService {
         validateEnrollment(enrollment, now);
 
         Guardian guardian = enrollment.getGuardian();
+        GuardianAccount account = guardianAccountService.ensureAccount(
+                guardian
+        );
 
-        GuardianDeviceResponse device =
-                guardianDeviceService.registerFromEnrollment(
+        boolean passwordRequired = !account.isActivated()
+                || enrollment.getPurpose()
+                == GuardianEnrollmentPurpose.PASSWORD_RESET;
+        if (passwordRequired) {
+            requirePassword(request.password());
+        }
+
+        if (enrollment.getPurpose()
+                == GuardianEnrollmentPurpose.PASSWORD_RESET) {
+            guardianSessionService.revokeAll(guardian.getId());
+            guardianDeviceService.deactivateAll(guardian.getId());
+        }
+
+        if (passwordRequired) {
+            account = guardianAccountService.setPassword(
+                    account,
+                    request.password()
+            );
+        }
+
+        GuardianDeviceResponse device = null;
+        if (request.fcmToken() != null
+                && !request.fcmToken().isBlank()) {
+            device = guardianDeviceService.registerFromEnrollment(
                         guardian,
                         new RegisterGuardianDeviceRequest(
-                                request.fcmToken(),
+                                request.fcmToken().trim(),
                                 request.deviceName()
                         )
                 );
+        }
 
         IssuedGuardianSession session = guardianSessionService.issue(
                 guardian,
-                device.id(),
+                device == null ? null : device.id(),
                 request.deviceName()
         );
 
@@ -180,7 +246,10 @@ public class GuardianDeviceEnrollmentService {
                         guardian.getId(),
                         guardian.getFullName(),
                         guardian.getSchool().getName(),
+                        guardian.getSchool().getCode(),
+                        account.getUsername(),
                         device,
+                        device != null,
                         session.expiresAt()
                 );
 
@@ -192,8 +261,10 @@ public class GuardianDeviceEnrollmentService {
 
     private GuardianInvitationResponse createInvitation(
             Guardian guardian,
+            GuardianAccount account,
             UUID batchId,
-            OffsetDateTime expiresAt
+            OffsetDateTime expiresAt,
+            GuardianEnrollmentPurpose purpose
     ) {
         String enrollmentToken = generateToken();
 
@@ -201,6 +272,7 @@ public class GuardianDeviceEnrollmentService {
                 new GuardianDeviceEnrollment();
         enrollment.setGuardian(guardian);
         enrollment.setBatchId(batchId);
+        enrollment.setPurpose(purpose);
         enrollment.setTokenHash(hashToken(enrollmentToken));
         enrollment.setExpiresAt(expiresAt);
 
@@ -213,9 +285,73 @@ public class GuardianDeviceEnrollmentService {
                 guardian.getPhone(),
                 guardian.getEmail(),
                 guardian.getSchool().getName(),
+                guardian.getSchool().getCode(),
+                account.getUsername(),
+                purpose,
                 enrollmentToken,
                 expiresAt
         );
+    }
+
+    @Transactional(readOnly = true)
+    public GuardianInvitationStatusResponse findStatus(String token) {
+        String normalizedToken = token == null ? "" : token.trim();
+        if (normalizedToken.isBlank() || normalizedToken.length() > 100) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Enrollment invitation not found"
+            );
+        }
+
+        GuardianDeviceEnrollment enrollment = enrollmentRepository
+                .findForStatusByTokenHash(hashToken(normalizedToken))
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Enrollment invitation not found"
+                ));
+        GuardianAccount account = guardianAccountService.findByGuardianId(
+                enrollment.getGuardian().getId()
+        );
+
+        return new GuardianInvitationStatusResponse(
+                resolveStatus(enrollment, OffsetDateTime.now()),
+                enrollment.getPurpose(),
+                enrollment.getGuardian().getId(),
+                enrollment.getGuardian().getFullName(),
+                enrollment.getGuardian().getSchool().getName(),
+                enrollment.getGuardian().getSchool().getCode(),
+                account.getUsername(),
+                account.isActivated(),
+                enrollment.getExpiresAt()
+        );
+    }
+
+    private String resolveStatus(
+            GuardianDeviceEnrollment enrollment,
+            OffsetDateTime now
+    ) {
+        if (enrollment.getUsedAt() != null) {
+            return "USED";
+        }
+        if (enrollment.getRevokedAt() != null) {
+            return "REVOKED";
+        }
+        if (!enrollment.getExpiresAt().isAfter(now)) {
+            return "EXPIRED";
+        }
+        return "VALID";
+    }
+
+    private void requirePassword(String password) {
+        if (password == null
+                || password.isBlank()
+                || password.length() < 8
+                || password.length() > 72) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "A password between 8 and 72 characters is required"
+            );
+        }
     }
 
     private void revokePreviousInvitations(

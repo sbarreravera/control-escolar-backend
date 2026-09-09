@@ -10,6 +10,9 @@ public record GuardianIdentityResponse(
         Long schoolId,
         String guardianName,
         String schoolName,
+        String schoolCode,
+        String username,
+        boolean notificationsEnabled,
         OffsetDateTime sessionExpiresAt
 ) {
 }

@@ -25,4 +25,21 @@ public interface GuardianSessionRepository
 
     List<GuardianSession>
     findAllByGuardian_IdInAndRevokedAtIsNull(List<Long> guardianIds);
+
+    @EntityGraph(attributePaths = {
+            "guardian",
+            "guardian.school"
+    })
+    Optional<GuardianSession> findByIdAndGuardian_Id(
+            Long id,
+            Long guardianId
+    );
+
+    List<GuardianSession>
+    findAllByGuardian_IdAndRevokedAtIsNullOrderByCreatedAtDesc(
+            Long guardianId
+    );
+
+    List<GuardianSession>
+    findAllByGuardianDeviceIdAndRevokedAtIsNull(Long guardianDeviceId);
 }

@@ -5,6 +5,7 @@ import com.graduacionesisamar.controlescolar.guardian.dto.GuardianResponse;
 import com.graduacionesisamar.controlescolar.guardian.dto.UpdateGuardianRequest;
 import com.graduacionesisamar.controlescolar.guardian.entity.Guardian;
 import com.graduacionesisamar.controlescolar.guardian.repository.GuardianRepository;
+import com.graduacionesisamar.controlescolar.guardianaccount.service.GuardianAccountService;
 import com.graduacionesisamar.controlescolar.school.entity.School;
 import com.graduacionesisamar.controlescolar.school.repository.SchoolRepository;
 import com.graduacionesisamar.controlescolar.security.service.SchoolAccessService;
@@ -28,6 +29,7 @@ public class GuardianService {
     private final GuardianRepository guardianRepository;
     private final SchoolRepository schoolRepository;
     private final SchoolAccessService schoolAccessService;
+    private final GuardianAccountService guardianAccountService;
 
     /**
      * Creates a new guardian.
@@ -47,6 +49,7 @@ public class GuardianService {
                 externalReference
         );
         Guardian savedGuardian = guardianRepository.save(guardian);
+        guardianAccountService.ensureAccount(savedGuardian);
 
         return toResponse(savedGuardian);
     }

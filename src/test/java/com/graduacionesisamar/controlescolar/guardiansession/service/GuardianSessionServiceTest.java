@@ -6,9 +6,9 @@ import com.graduacionesisamar.controlescolar.guardiansession.repository.Guardian
 import com.graduacionesisamar.controlescolar.guardiansession.security.GuardianPrincipal;
 import com.graduacionesisamar.controlescolar.school.entity.School;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -33,8 +33,15 @@ class GuardianSessionServiceTest {
     @Mock
     private GuardianSessionRepository guardianSessionRepository;
 
-    @InjectMocks
     private GuardianSessionService guardianSessionService;
+
+    @BeforeEach
+    void setUp() {
+        guardianSessionService = new GuardianSessionService(
+                guardianSessionRepository,
+                90
+        );
+    }
 
     @Test
     void issueStoresOnlyAHashAndReturnsOpaqueToken() {
@@ -66,7 +73,7 @@ class GuardianSessionServiceTest {
         assertEquals(55L, stored.getGuardianDeviceId());
         assertEquals("Teléfono principal", stored.getDeviceName());
         assertTrue(issued.expiresAt().isAfter(
-                OffsetDateTime.now().plusDays(29)
+                OffsetDateTime.now().plusDays(89)
         ));
     }
 
@@ -90,7 +97,7 @@ class GuardianSessionServiceTest {
         assertEquals(1L, result.orElseThrow().guardianId());
         assertEquals(10L, result.orElseThrow().schoolId());
         assertEquals(
-                "Tutor de prueba",
+                "Tutor de Prueba 3",
                 result.orElseThrow().guardianName()
         );
     }
@@ -152,12 +159,12 @@ class GuardianSessionServiceTest {
     private Guardian createGuardian(boolean active) {
         School school = new School();
         school.setId(10L);
-        school.setName("Escuela de prueba");
+        school.setName("Escuela de Prueba 4");
 
         Guardian guardian = new Guardian();
         guardian.setId(1L);
         guardian.setSchool(school);
-        guardian.setFullName("Tutor de prueba");
+        guardian.setFullName("Tutor de Prueba 3");
         guardian.setActive(active);
         return guardian;
     }

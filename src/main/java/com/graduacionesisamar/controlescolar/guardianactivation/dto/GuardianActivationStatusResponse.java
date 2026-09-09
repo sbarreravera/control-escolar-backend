@@ -12,6 +12,8 @@ public record GuardianActivationStatusResponse(
         String guardianName,
         String phone,
         String email,
+        String username,
+        boolean accountActivated,
         boolean guardianActive,
         String activationState,
         OffsetDateTime invitationCreatedAt,

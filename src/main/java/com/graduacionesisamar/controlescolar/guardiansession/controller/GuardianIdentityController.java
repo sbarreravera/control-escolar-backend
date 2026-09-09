@@ -1,6 +1,8 @@
 package com.graduacionesisamar.controlescolar.guardiansession.controller;
 
 import com.graduacionesisamar.controlescolar.guardiansession.dto.GuardianIdentityResponse;
+import com.graduacionesisamar.controlescolar.guardianaccount.service.GuardianAccountService;
+import com.graduacionesisamar.controlescolar.guardiandevice.repository.GuardianDeviceRepository;
 import com.graduacionesisamar.controlescolar.guardiansession.security.GuardianPrincipal;
 import com.graduacionesisamar.controlescolar.guardiansession.security.GuardianSessionCookieService;
 import com.graduacionesisamar.controlescolar.guardiansession.service.GuardianSessionService;
@@ -26,16 +28,30 @@ public class GuardianIdentityController {
 
     private final GuardianSessionCookieService cookieService;
     private final GuardianSessionService guardianSessionService;
+    private final GuardianAccountService guardianAccountService;
+    private final GuardianDeviceRepository guardianDeviceRepository;
 
     @GetMapping("/me")
     public GuardianIdentityResponse me(Authentication authentication) {
         GuardianPrincipal principal = requirePrincipal(authentication);
+        var account = guardianAccountService.findByGuardianId(
+                principal.guardianId()
+        );
+        boolean notificationsEnabled = principal.guardianDeviceId() != null
+                && guardianDeviceRepository
+                .existsByIdAndGuardian_IdAndActiveTrue(
+                        principal.guardianDeviceId(),
+                        principal.guardianId()
+                );
 
         return new GuardianIdentityResponse(
                 principal.guardianId(),
                 principal.schoolId(),
                 principal.guardianName(),
                 principal.schoolName(),
+                account.getSchool().getCode(),
+                account.getUsername(),
+                notificationsEnabled,
                 principal.expiresAt()
         );
     }

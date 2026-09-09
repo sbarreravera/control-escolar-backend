@@ -4,6 +4,8 @@ import com.graduacionesisamar.controlescolar.academiccycle.entity.AcademicCycle;
 import com.graduacionesisamar.controlescolar.academiccycle.repository.AcademicCycleRepository;
 import com.graduacionesisamar.controlescolar.guardian.entity.Guardian;
 import com.graduacionesisamar.controlescolar.guardian.repository.GuardianRepository;
+import com.graduacionesisamar.controlescolar.guardianaccount.entity.GuardianAccount;
+import com.graduacionesisamar.controlescolar.guardianaccount.repository.GuardianAccountRepository;
 import com.graduacionesisamar.controlescolar.guardianactivation.dto.GuardianAccessRevocationResponse;
 import com.graduacionesisamar.controlescolar.guardianactivation.dto.GuardianActivationPageResponse;
 import com.graduacionesisamar.controlescolar.guardianactivation.dto.GuardianActivationStatusResponse;
@@ -57,6 +59,8 @@ class GuardianActivationAdministrationServiceTest {
     private StudentGuardianRepository studentGuardianRepository;
     @Mock
     private SchoolAccessService schoolAccessService;
+    @Mock
+    private GuardianAccountRepository guardianAccountRepository;
 
     @InjectMocks
     private GuardianActivationAdministrationService service;
@@ -92,6 +96,8 @@ class GuardianActivationAdministrationServiceTest {
         when(guardianDeviceRepository
                 .findAllByGuardian_IdIn(List.of(1L)))
                 .thenReturn(List.of(device));
+        when(guardianAccountRepository.findAllByGuardian_IdIn(List.of(1L)))
+                .thenReturn(List.of(activatedAccount(guardian)));
         when(studentGuardianRepository.findForGuardianSummaries(
                 List.of(1L), 30L
         )).thenReturn(List.of());
@@ -113,7 +119,7 @@ class GuardianActivationAdministrationServiceTest {
     @Test
     void findPageFiltersBeforeApplyingPagination() {
         Guardian second = createGuardian(2L);
-        second.setFullName("Bruno Pérez");
+        second.setFullName("Tutor de Prueba 5");
 
         stubAcademicScope();
         when(guardianRepository.findForActivation(
@@ -239,17 +245,69 @@ class GuardianActivationAdministrationServiceTest {
                 .findAllByGuardian_IdInAndUsedAtIsNullAndRevokedAtIsNull(ids);
     }
 
+    @Test
+    void revokeSessionClosesEverySessionAttachedToTheSelectedDevice() {
+        Guardian guardian = createGuardian(1L);
+        GuardianSession selected = new GuardianSession();
+        selected.setId(100L);
+        selected.setGuardian(guardian);
+        selected.setGuardianDeviceId(50L);
+        selected.setExpiresAt(OffsetDateTime.now().plusDays(10));
+
+        GuardianSession sibling = new GuardianSession();
+        sibling.setId(101L);
+        sibling.setGuardian(guardian);
+        sibling.setGuardianDeviceId(50L);
+        sibling.setExpiresAt(OffsetDateTime.now().plusDays(10));
+
+        GuardianDevice device = new GuardianDevice();
+        device.setId(50L);
+        device.setGuardian(guardian);
+        device.setActive(true);
+
+        when(guardianRepository.findById(1L))
+                .thenReturn(Optional.of(guardian));
+        when(guardianSessionRepository.findByIdAndGuardian_Id(100L, 1L))
+                .thenReturn(Optional.of(selected));
+        when(guardianSessionRepository
+                .findAllByGuardianDeviceIdAndRevokedAtIsNull(50L))
+                .thenReturn(List.of(selected, sibling));
+        when(guardianDeviceRepository.findByIdAndGuardian_Id(50L, 1L))
+                .thenReturn(Optional.of(device));
+
+        GuardianAccessRevocationResponse response = service.revokeSession(
+                1L,
+                100L
+        );
+
+        assertEquals(2, response.sessionsRevoked());
+        assertEquals(1, response.devicesDeactivated());
+        assertTrue(selected.getRevokedAt() != null);
+        assertTrue(sibling.getRevokedAt() != null);
+        assertFalse(device.isActive());
+        verify(schoolAccessService).requireAccessToSchool(10L);
+    }
+
     private Guardian createGuardian(Long id) {
         School school = new School();
         school.setId(10L);
-        school.setName("Escuela");
+        school.setName("Escuela de Prueba 3");
 
         Guardian guardian = new Guardian();
         guardian.setId(id);
         guardian.setSchool(school);
-        guardian.setFullName("Tutor " + id);
+        guardian.setFullName("Tutor de Prueba 6" + id);
         guardian.setActive(true);
         return guardian;
+    }
+
+    private GuardianAccount activatedAccount(Guardian guardian) {
+        GuardianAccount account = new GuardianAccount();
+        account.setGuardian(guardian);
+        account.setSchool(guardian.getSchool());
+        account.setUsername("TUT-" + guardian.getId());
+        account.setPasswordHash("hash");
+        return account;
     }
 
     private void stubAcademicScope() {

@@ -5,6 +5,9 @@ import com.graduacionesisamar.controlescolar
         .guardiandeviceenrollment.entity.GuardianDeviceEnrollment;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.data.jpa.repository.Lock;
 
 import java.util.List;
@@ -24,6 +27,19 @@ public interface GuardianDeviceEnrollmentRepository
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<GuardianDeviceEnrollment> findByTokenHash(
             String tokenHash
+    );
+
+    @EntityGraph(attributePaths = {
+            "guardian",
+            "guardian.school"
+    })
+    @Query("""
+            SELECT invitation
+            FROM GuardianDeviceEnrollment invitation
+            WHERE invitation.tokenHash = :tokenHash
+            """)
+    Optional<GuardianDeviceEnrollment> findForStatusByTokenHash(
+            @Param("tokenHash") String tokenHash
     );
 
     /**

@@ -7,6 +7,8 @@ import com.graduacionesisamar.controlescolar.guardiandevice.dto.RegisterGuardian
 import com.graduacionesisamar.controlescolar.guardiandevice.entity.GuardianDevice;
 import com.graduacionesisamar.controlescolar.guardiandevice.repository.GuardianDeviceRepository;
 import com.graduacionesisamar.controlescolar.security.service.SchoolAccessService;
+import com.graduacionesisamar.controlescolar.guardiansession.security.GuardianPrincipal;
+import com.graduacionesisamar.controlescolar.guardiansession.service.GuardianSessionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -24,6 +26,7 @@ public class GuardianDeviceService {
     private final GuardianDeviceRepository guardianDeviceRepository;
     private final GuardianRepository guardianRepository;
     private final SchoolAccessService schoolAccessService;
+    private final GuardianSessionService guardianSessionService;
 
     public GuardianDeviceResponse register(
             Long guardianId,
@@ -44,6 +47,27 @@ public class GuardianDeviceService {
             RegisterGuardianDeviceRequest request
     ) {
         return registerDevice(guardian, request);
+    }
+
+    public GuardianDeviceResponse registerForCurrentSession(
+            GuardianPrincipal principal,
+            RegisterGuardianDeviceRequest request
+    ) {
+        Guardian guardian = findGuardian(principal.guardianId());
+        if (!guardian.getSchool().getId().equals(principal.schoolId())) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Guardian not found"
+            );
+        }
+
+        GuardianDeviceResponse device = registerDevice(guardian, request);
+        guardianSessionService.attachDevice(
+                principal.sessionId(),
+                principal.guardianId(),
+                device.id()
+        );
+        return device;
     }
 
     @Transactional(readOnly = true)
@@ -77,10 +101,21 @@ public class GuardianDeviceService {
                 ));
 
         device.setActive(false);
+        guardianSessionService.revokeForDevice(deviceId);
 
         return toResponse(
                 guardianDeviceRepository.save(device)
         );
+    }
+
+    public int deactivateAll(Long guardianId) {
+        List<GuardianDevice> devices = guardianDeviceRepository
+                .findAllByGuardian_IdAndActiveTrueOrderByRegisteredAtDesc(
+                        guardianId
+                );
+        devices.forEach(device -> device.setActive(false));
+        guardianDeviceRepository.saveAll(devices);
+        return devices.size();
     }
 
     private GuardianDeviceResponse registerDevice(
@@ -171,9 +206,9 @@ public class GuardianDeviceService {
         return value.trim();
     }
 
-        private GuardianDeviceResponse toResponse(
-                GuardianDevice device
-        ) {
+    private GuardianDeviceResponse toResponse(
+            GuardianDevice device
+    ) {
         return new GuardianDeviceResponse(
                 device.getId(),
                 device.getGuardian().getId(),
@@ -182,5 +217,5 @@ public class GuardianDeviceService {
                 device.getRegisteredAt(),
                 device.getLastUsedAt()
         );
-     }
+    }
 }
