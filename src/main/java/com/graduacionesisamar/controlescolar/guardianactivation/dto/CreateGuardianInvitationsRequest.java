@@ -15,8 +15,8 @@ public record CreateGuardianInvitationsRequest(
 
         @NotEmpty(message = "Select at least one guardian")
         @Size(
-                max = 500,
-                message = "No more than 500 guardians can be invited at once"
+                max = 2000,
+                message = "No more than 2000 guardians can be invited at once"
         )
         List<@NotNull Long> guardianIds
 ) {
