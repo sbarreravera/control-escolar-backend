@@ -34,4 +34,12 @@ public interface GuardianDeviceEnrollmentRepository
     findAllByGuardian_IdAndUsedAtIsNullAndRevokedAtIsNull(
             Long guardianId
     );
+
+    List<GuardianDeviceEnrollment>
+    findAllByGuardian_IdInAndUsedAtIsNullAndRevokedAtIsNull(
+            List<Long> guardianIds
+    );
+
+    List<GuardianDeviceEnrollment>
+    findAllByGuardian_School_IdOrderByCreatedAtDesc(Long schoolId);
 }

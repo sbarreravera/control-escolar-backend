@@ -13,6 +13,11 @@ public interface GuardianRepository extends JpaRepository<Guardian, Long> {
 
     List<Guardian> findAllBySchool_IdOrderByFullNameAsc(Long schoolId);
 
+    List<Guardian> findAllBySchool_IdAndIdInOrderByFullNameAsc(
+            Long schoolId,
+            List<Long> ids
+    );
+
     Optional<Guardian> findBySchool_IdAndExternalReferenceIgnoreCase(
             Long schoolId,
             String externalReference

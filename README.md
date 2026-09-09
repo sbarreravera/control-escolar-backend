@@ -193,6 +193,7 @@ La aplicación utiliza las siguientes variables:
 | `DB_USERNAME` | No | `sambarve` | Usuario de conexión |
 | `DB_PASSWORD` | Sí | Sin valor | Contraseña de la base de datos |
 | `SERVER_PORT` | No | `8080` | Puerto HTTP de la aplicación |
+| `GUARDIAN_COOKIE_SECURE` | No | `true` | Exige HTTPS para la cookie de sesión del tutor; usar `false` únicamente en desarrollo local por HTTP |
 
 La contraseña no debe agregarse a `application.properties`, al historial de Git ni a la documentación pública.
 
