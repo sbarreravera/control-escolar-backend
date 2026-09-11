@@ -33,6 +33,13 @@ public interface StudentGuardianRepository
 
     List<StudentGuardian> findAllByStudent_School_Id(Long schoolId);
 
+    /**
+     * Returns every active guardian relation for active students in a school.
+     * School communications are durable portal messages; the legacy
+     * receivesNotifications flag continues to control access-event alerts,
+     * while actual push eligibility for communications is determined by the
+     * guardian's active registered devices.
+     */
     @Query("""
             SELECT link
             FROM StudentGuardian link
@@ -43,7 +50,6 @@ public interface StudentGuardianRepository
             WHERE student.school.id = :schoolId
               AND student.active = true
               AND guardian.active = true
-              AND link.receivesNotifications = true
             ORDER BY guardian.id, student.id
             """)
     List<StudentGuardian> findCommunicationCandidates(
