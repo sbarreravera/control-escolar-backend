@@ -2,13 +2,20 @@ package com.graduacionesisamar.controlescolar.guardiandeviceenrollment.service;
 
 import com.graduacionesisamar.controlescolar.guardian.entity.Guardian;
 import com.graduacionesisamar.controlescolar.guardian.repository.GuardianRepository;
+import com.graduacionesisamar.controlescolar.guardianaccount.entity.GuardianAccount;
+import com.graduacionesisamar.controlescolar.guardianaccount.service.GuardianAccountService;
+import com.graduacionesisamar.controlescolar.guardianactivation.dto.CreateGuardianInvitationsRequest;
+import com.graduacionesisamar.controlescolar.guardianactivation.dto.GuardianInvitationBatchResponse;
 import com.graduacionesisamar.controlescolar.guardiandevice.dto.GuardianDeviceResponse;
 import com.graduacionesisamar.controlescolar.guardiandevice.dto.RegisterGuardianDeviceRequest;
 import com.graduacionesisamar.controlescolar.guardiandevice.service.GuardianDeviceService;
 import com.graduacionesisamar.controlescolar.guardiandeviceenrollment.dto.CompleteGuardianDeviceEnrollmentRequest;
 import com.graduacionesisamar.controlescolar.guardiandeviceenrollment.dto.CreateGuardianDeviceEnrollmentResponse;
 import com.graduacionesisamar.controlescolar.guardiandeviceenrollment.entity.GuardianDeviceEnrollment;
+import com.graduacionesisamar.controlescolar.guardiandeviceenrollment.entity.GuardianEnrollmentPurpose;
 import com.graduacionesisamar.controlescolar.guardiandeviceenrollment.repository.GuardianDeviceEnrollmentRepository;
+import com.graduacionesisamar.controlescolar.guardiansession.service.GuardianSessionService;
+import com.graduacionesisamar.controlescolar.guardiansession.service.IssuedGuardianSession;
 import com.graduacionesisamar.controlescolar.school.entity.School;
 import com.graduacionesisamar.controlescolar.security.service.SchoolAccessService;
 import org.junit.jupiter.api.Test;
@@ -54,7 +61,13 @@ class GuardianDeviceEnrollmentServiceTest {
     private GuardianDeviceService guardianDeviceService;
 
     @Mock
+    private GuardianSessionService guardianSessionService;
+
+    @Mock
     private SchoolAccessService schoolAccessService;
+
+    @Mock
+    private GuardianAccountService guardianAccountService;
 
     @InjectMocks
     private GuardianDeviceEnrollmentService enrollmentService;
@@ -68,10 +81,12 @@ class GuardianDeviceEnrollmentServiceTest {
 
         when(guardianRepository.findById(1L))
                 .thenReturn(Optional.of(guardian));
+        when(guardianAccountService.ensureAccount(guardian))
+                .thenReturn(createAccount(guardian, false));
 
         when(enrollmentRepository
-                .findAllByGuardian_IdAndUsedAtIsNullAndRevokedAtIsNull(
-                        1L
+                .findAllByGuardian_IdInAndUsedAtIsNullAndRevokedAtIsNull(
+                        List.of(1L)
                 ))
                 .thenReturn(List.of(previous));
 
@@ -101,8 +116,9 @@ class GuardianDeviceEnrollmentServiceTest {
                 captor.getValue();
 
         assertEquals(1L, response.guardianId());
-        assertEquals("Tutor de prueba", response.guardianName());
-        assertEquals("Escuela de prueba", response.schoolName());
+        assertEquals("Tutor de Prueba 3", response.guardianName());
+        assertEquals("Escuela de Prueba 4", response.schoolName());
+        assertEquals("TUT-1", response.username());
 
         assertTrue(
                 response.enrollmentToken()
@@ -125,6 +141,79 @@ class GuardianDeviceEnrollmentServiceTest {
     }
 
     @Test
+    void createBatchGeneratesDistinctInvitationsForOneSchool() {
+        Guardian first = createGuardian(true);
+        Guardian second = createGuardian(true);
+        second.setId(2L);
+        second.setFullName("Tutor de Prueba 7");
+
+        List<Long> guardianIds = List.of(1L, 2L);
+
+        when(guardianRepository
+                .findAllBySchool_IdAndIdInOrderByFullNameAsc(
+                        10L,
+                        guardianIds
+                ))
+                .thenReturn(List.of(first, second));
+        when(guardianAccountService.ensureAccounts(List.of(first, second)))
+                .thenReturn(List.of(
+                        createAccount(first, false),
+                        createAccount(second, false)
+                ));
+        when(enrollmentRepository
+                .findAllByGuardian_IdInAndUsedAtIsNullAndRevokedAtIsNull(
+                        guardianIds
+                ))
+                .thenReturn(List.of());
+
+        GuardianInvitationBatchResponse response =
+                enrollmentService.createBatch(
+                        new CreateGuardianInvitationsRequest(
+                                10L,
+                                guardianIds
+                        )
+                );
+
+        assertEquals(2, response.invitationsCreated());
+        assertEquals(2, response.invitations().size());
+        assertNotEquals(
+                response.invitations().get(0).enrollmentToken(),
+                response.invitations().get(1).enrollmentToken()
+        );
+        assertEquals(
+                response.invitations().get(0).expiresAt(),
+                response.invitations().get(1).expiresAt()
+        );
+        verify(schoolAccessService).requireAccessToSchool(10L);
+    }
+
+    @Test
+    void createBatchRejectsGuardianOutsideSchoolBeforeWriting() {
+        List<Long> guardianIds = List.of(1L, 2L);
+
+        when(guardianRepository
+                .findAllBySchool_IdAndIdInOrderByFullNameAsc(
+                        10L,
+                        guardianIds
+                ))
+                .thenReturn(List.of(createGuardian(true)));
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> enrollmentService.createBatch(
+                        new CreateGuardianInvitationsRequest(
+                                10L,
+                                guardianIds
+                        )
+                )
+        );
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+        verify(enrollmentRepository, never())
+                .save(any(GuardianDeviceEnrollment.class));
+    }
+
+    @Test
     void completeRegistersDeviceAndMarksInvitationAsUsed() {
         String enrollmentToken =
                 "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNO12";
@@ -142,14 +231,15 @@ class GuardianDeviceEnrollmentServiceTest {
                 new CompleteGuardianDeviceEnrollmentRequest(
                         enrollmentToken,
                         "fcm-token-1",
-                        "Teléfono de Samuel"
+                        "Teléfono de prueba",
+                        null
                 );
 
         GuardianDeviceResponse expectedResponse =
                 new GuardianDeviceResponse(
                         50L,
                         1L,
-                        "Teléfono de Samuel",
+                        "Teléfono de prueba",
                         true,
                         OffsetDateTime.now(),
                         null
@@ -158,13 +248,27 @@ class GuardianDeviceEnrollmentServiceTest {
         when(enrollmentRepository.findByTokenHash(
                 hashToken(enrollmentToken)
         )).thenReturn(Optional.of(enrollment));
+        when(guardianAccountService.ensureAccount(guardian))
+                .thenReturn(createAccount(guardian, true));
 
         when(guardianDeviceService.registerFromEnrollment(
                 eq(guardian),
                 any(RegisterGuardianDeviceRequest.class)
         )).thenReturn(expectedResponse);
 
-        GuardianDeviceResponse response =
+        OffsetDateTime sessionExpiresAt =
+                OffsetDateTime.now().plusDays(30);
+
+        when(guardianSessionService.issue(
+                guardian,
+                50L,
+                "Teléfono de prueba"
+        )).thenReturn(new IssuedGuardianSession(
+                "guardian-session-token",
+                sessionExpiresAt
+        ));
+
+        CompletedGuardianEnrollment completed =
                 enrollmentService.complete(request);
 
         ArgumentCaptor<RegisterGuardianDeviceRequest> requestCaptor =
@@ -183,14 +287,118 @@ class GuardianDeviceEnrollmentServiceTest {
 
         assertEquals("fcm-token-1", registrationRequest.fcmToken());
         assertEquals(
-                "Teléfono de Samuel",
+                "Teléfono de prueba",
                 registrationRequest.deviceName()
         );
 
-        assertSame(expectedResponse, response);
+        assertSame(expectedResponse, completed.response().device());
+        assertEquals(
+                "guardian-session-token",
+                completed.sessionToken()
+        );
+        assertEquals(
+                sessionExpiresAt,
+                completed.response().sessionExpiresAt()
+        );
         assertNotNull(enrollment.getUsedAt());
 
         verify(enrollmentRepository).save(enrollment);
+    }
+
+    @Test
+    void firstActivationCreatesPasswordWithoutRequiringNotifications() {
+        String enrollmentToken = "first-activation-token";
+        Guardian guardian = createGuardian(true);
+        GuardianDeviceEnrollment enrollment = createEnrollment(
+                guardian,
+                enrollmentToken,
+                OffsetDateTime.now().plusMinutes(10)
+        );
+        GuardianAccount pendingAccount = createAccount(guardian, false);
+        GuardianAccount activatedAccount = createAccount(guardian, true);
+
+        when(enrollmentRepository.findByTokenHash(hashToken(enrollmentToken)))
+                .thenReturn(Optional.of(enrollment));
+        when(guardianAccountService.ensureAccount(guardian))
+                .thenReturn(pendingAccount);
+        when(guardianAccountService.setPassword(
+                pendingAccount,
+                "segura-123"
+        )).thenReturn(activatedAccount);
+        when(guardianSessionService.issue(
+                guardian,
+                null,
+                "Equipo Windows"
+        )).thenReturn(new IssuedGuardianSession(
+                "session-token",
+                OffsetDateTime.now().plusDays(90)
+        ));
+
+        CompletedGuardianEnrollment completed = enrollmentService.complete(
+                new CompleteGuardianDeviceEnrollmentRequest(
+                        enrollmentToken,
+                        null,
+                        "Equipo Windows",
+                        "segura-123"
+                )
+        );
+
+        assertEquals("TUT-1", completed.response().username());
+        assertEquals(false, completed.response().notificationsEnabled());
+        assertEquals(null, completed.response().device());
+        verifyNoInteractions(guardianDeviceService);
+        verify(guardianAccountService).setPassword(
+                pendingAccount,
+                "segura-123"
+        );
+        verify(guardianSessionService).issue(
+                guardian,
+                null,
+                "Equipo Windows"
+        );
+    }
+
+    @Test
+    void passwordResetChangesPasswordAndRevokesEveryPreviousAccess() {
+        String enrollmentToken = "password-reset-token";
+        Guardian guardian = createGuardian(true);
+        GuardianDeviceEnrollment enrollment = createEnrollment(
+                guardian,
+                enrollmentToken,
+                OffsetDateTime.now().plusMinutes(10)
+        );
+        enrollment.setPurpose(GuardianEnrollmentPurpose.PASSWORD_RESET);
+        GuardianAccount account = createAccount(guardian, true);
+
+        when(enrollmentRepository.findByTokenHash(hashToken(enrollmentToken)))
+                .thenReturn(Optional.of(enrollment));
+        when(guardianAccountService.ensureAccount(guardian))
+                .thenReturn(account);
+        when(guardianAccountService.setPassword(account, "nueva-123"))
+                .thenReturn(account);
+        when(guardianSessionService.issue(
+                guardian,
+                null,
+                "Nuevo teléfono"
+        )).thenReturn(new IssuedGuardianSession(
+                "replacement-session",
+                OffsetDateTime.now().plusDays(90)
+        ));
+
+        CompletedGuardianEnrollment completed = enrollmentService.complete(
+                new CompleteGuardianDeviceEnrollmentRequest(
+                        enrollmentToken,
+                        null,
+                        "Nuevo teléfono",
+                        "nueva-123"
+                )
+        );
+
+        verify(guardianSessionService).revokeAll(guardian.getId());
+        verify(guardianDeviceService).deactivateAll(guardian.getId());
+        verify(guardianAccountService).setPassword(account, "nueva-123");
+        assertEquals("replacement-session", completed.sessionToken());
+        assertNotNull(enrollment.getUsedAt());
     }
 
     @Test
@@ -213,7 +421,8 @@ class GuardianDeviceEnrollmentServiceTest {
                 new CompleteGuardianDeviceEnrollmentRequest(
                         enrollmentToken,
                         "fcm-token-1",
-                        "Teléfono"
+                        "Teléfono",
+                        null
                 );
 
         ResponseStatusException exception = assertThrows(
@@ -253,7 +462,8 @@ class GuardianDeviceEnrollmentServiceTest {
                 new CompleteGuardianDeviceEnrollmentRequest(
                         enrollmentToken,
                         "fcm-token-1",
-                        "Teléfono"
+                        "Teléfono",
+                        null
                 );
 
         ResponseStatusException exception = assertThrows(
@@ -274,15 +484,31 @@ class GuardianDeviceEnrollmentServiceTest {
     private Guardian createGuardian(boolean active) {
         School school = new School();
         school.setId(10L);
-        school.setName("Escuela de prueba");
+        school.setName("Escuela de Prueba 4");
+        school.setCode("ESC-TEST-3");
 
         Guardian guardian = new Guardian();
         guardian.setId(1L);
         guardian.setSchool(school);
-        guardian.setFullName("Tutor de prueba");
+        guardian.setFullName("Tutor de Prueba 3");
         guardian.setActive(active);
 
         return guardian;
+    }
+
+    private GuardianAccount createAccount(
+            Guardian guardian,
+            boolean activated
+    ) {
+        GuardianAccount account = new GuardianAccount();
+        account.setId(200L + guardian.getId());
+        account.setGuardian(guardian);
+        account.setSchool(guardian.getSchool());
+        account.setUsername("TUT-" + guardian.getId());
+        if (activated) {
+            account.setPasswordHash("encoded-password");
+        }
+        return account;
     }
 
     private GuardianDeviceEnrollment createEnrollment(

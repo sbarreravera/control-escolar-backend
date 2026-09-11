@@ -7,16 +7,21 @@ import com.graduacionesisamar.controlescolar.schoolgroup.entity.SchoolGroup;
 import com.graduacionesisamar.controlescolar.schoolgroup.repository.SchoolGroupRepository;
 import com.graduacionesisamar.controlescolar.student.dto.CreateStudentRequest;
 import com.graduacionesisamar.controlescolar.student.dto.StudentResponse;
+import com.graduacionesisamar.controlescolar.student.dto.StudentPageResponse;
 import com.graduacionesisamar.controlescolar.student.dto.UpdateStudentRequest;
 import com.graduacionesisamar.controlescolar.student.entity.Student;
 import com.graduacionesisamar.controlescolar.student.repository.StudentRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 
 /**
@@ -68,6 +73,52 @@ public class StudentService {
                 .stream()
                 .map(this::toResponse)
                 .toList();
+    }
+
+    /**
+     * Returns a filtered and paginated school roster.
+     */
+    @Transactional(readOnly = true)
+    public StudentPageResponse findPageBySchool(
+            Long schoolId,
+            int page,
+            int size,
+            String search,
+            Long academicCycleId,
+            Long schoolGroupId,
+            Boolean active,
+            String sort,
+            String direction
+    ) {
+        schoolAccessService.requireAccessToSchool(schoolId);
+        findSchool(schoolId);
+
+        PageRequest pageable = PageRequest.of(
+                page,
+                size,
+                buildSort(sort, direction)
+        );
+
+        Page<Student> result = studentRepository.searchBySchool(
+                schoolId,
+                normalizeSearch(search),
+                academicCycleId,
+                schoolGroupId,
+                active,
+                pageable
+        );
+
+        return new StudentPageResponse(
+                result.getContent().stream()
+                        .map(this::toResponse)
+                        .toList(),
+                result.getNumber(),
+                result.getSize(),
+                result.getTotalElements(),
+                result.getTotalPages(),
+                result.isFirst(),
+                result.isLast()
+        );
     }
 
     /**
@@ -232,6 +283,44 @@ public class StudentService {
 
     private String trimNullable(String value) {
         return value == null ? null : value.trim();
+    }
+
+    private String normalizeSearch(String search) {
+        return search == null
+                ? ""
+                : search.trim()
+                        .replaceAll("\\s+", " ")
+                        .toLowerCase(Locale.ROOT);
+    }
+
+    private Sort buildSort(String sort, String direction) {
+        Sort.Direction sortDirection = "desc".equalsIgnoreCase(direction)
+                ? Sort.Direction.DESC
+                : Sort.Direction.ASC;
+
+        Sort primarySort = switch (sort == null ? "" : sort) {
+            case "enrollmentNumber" -> Sort.by(
+                    sortDirection,
+                    "enrollmentNumber"
+            );
+            case "academicCycleName" -> Sort.by(
+                    sortDirection,
+                    "schoolGroup.academicCycle.name"
+            );
+            case "schoolGroup" -> Sort.by(
+                    sortDirection,
+                    "gradeName",
+                    "groupName"
+            );
+            case "active" -> Sort.by(sortDirection, "active");
+            default -> Sort.by(
+                    sortDirection,
+                    "lastName",
+                    "firstName"
+            );
+        };
+
+        return primarySort.and(Sort.by("id"));
     }
 
     private StudentResponse toResponse(Student student) {

@@ -10,6 +10,8 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import lombok.Getter;
@@ -17,6 +19,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 /**
  * Represents a temporary invitation used to register
@@ -36,6 +39,14 @@ public class GuardianDeviceEnrollment {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "guardian_id", nullable = false)
     private Guardian guardian;
+
+    @Column(name = "batch_id")
+    private UUID batchId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
+    private GuardianEnrollmentPurpose purpose =
+            GuardianEnrollmentPurpose.ACTIVATION;
 
     @Column(
             name = "token_hash",

@@ -193,8 +193,46 @@ La aplicación utiliza las siguientes variables:
 | `DB_USERNAME` | No | `sambarve` | Usuario de conexión |
 | `DB_PASSWORD` | Sí | Sin valor | Contraseña de la base de datos |
 | `SERVER_PORT` | No | `8080` | Puerto HTTP de la aplicación |
+| `GUARDIAN_COOKIE_SECURE` | No | `true` | Exige HTTPS para la cookie de sesión del tutor; usar `false` únicamente en desarrollo local por HTTP |
+| `GUARDIAN_SESSION_DAYS` | No | `90` | Vigencia, entre 1 y 365 días, de cada sesión recuperable del portal de tutores |
 
 La contraseña no debe agregarse a `application.properties`, al historial de Git ni a la documentación pública.
+
+### Inicio local recomendado en Windows
+
+El script versionado `scripts/run-local.ps1` deja configurados en el perfil de usuario de Windows `DB_URL`, `DB_USERNAME` y `GUARDIAN_COOKIE_SECURE`. Si `DB_PASSWORD` todavía no existe, la solicita de forma oculta y la guarda como variable de entorno de usuario, nunca en el repositorio ni en el historial de PowerShell. Después inicia el backend.
+
+Desde la raíz del backend:
+
+```powershell
+.\scripts\run-local.ps1
+```
+
+La primera ejecución solicita la contraseña; las siguientes reutilizan la variable persistente. Para reemplazarla deliberadamente:
+
+```powershell
+.\scripts\run-local.ps1 -ResetDatabasePassword
+```
+
+Para configurar las variables sin iniciar el backend:
+
+```powershell
+.\scripts\run-local.ps1 -SetupOnly
+```
+
+Después de la primera configuración conviene reiniciar las terminales y aplicaciones abiertas, como Visual Studio Code, para que hereden las variables de usuario. Una variable de entorno de usuario de Windows es legible por los procesos de esa misma cuenta; este mecanismo evita que la contraseña entre en Git, pero no sustituye un gestor de secretos para entornos compartidos o de producción.
+
+La configuración local histórica de este proyecto utiliza:
+
+| Variable | Valor local |
+|---|---|
+| `DB_URL` | `jdbc:postgresql://localhost:5432/control_escolar` |
+| `DB_USERNAME` | `sambarve` |
+| `GUARDIAN_COOKIE_SECURE` | `false` |
+
+No es necesario localizar ni ejecutar `psql.exe` para iniciar la aplicación.
+
+### Configuración manual por sesión
 
 Ejemplo en PowerShell:
 

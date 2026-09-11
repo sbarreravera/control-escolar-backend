@@ -13,6 +13,9 @@ public record CreateGuardianRequest(
         @NotNull(message = "School id is required")
         Long schoolId,
 
+        @Size(max = 50, message = "External reference cannot exceed 50 characters")
+        String externalReference,
+
         @NotBlank(message = "Guardian full name is required")
         @Size(max = 150, message = "Full name cannot exceed 150 characters")
         String fullName,

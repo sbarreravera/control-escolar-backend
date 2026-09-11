@@ -7,6 +7,8 @@ import com.graduacionesisamar.controlescolar.guardiandevice.dto.RegisterGuardian
 import com.graduacionesisamar.controlescolar.guardiandevice.entity.GuardianDevice;
 import com.graduacionesisamar.controlescolar.guardiandevice.repository.GuardianDeviceRepository;
 import com.graduacionesisamar.controlescolar.security.service.SchoolAccessService;
+import com.graduacionesisamar.controlescolar.guardiansession.security.GuardianPrincipal;
+import com.graduacionesisamar.controlescolar.guardiansession.service.GuardianSessionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -21,9 +23,13 @@ import java.util.Objects;
 @Transactional
 public class GuardianDeviceService {
 
+    private static final String DEVICE_TOKEN_CONFLICT_MESSAGE =
+            "Device token is already registered to another guardian";
+
     private final GuardianDeviceRepository guardianDeviceRepository;
     private final GuardianRepository guardianRepository;
     private final SchoolAccessService schoolAccessService;
+    private final GuardianSessionService guardianSessionService;
 
     public GuardianDeviceResponse register(
             Long guardianId,
@@ -37,13 +43,45 @@ public class GuardianDeviceService {
 
     /**
      * Registers a device after its temporary enrollment
-     * invitation has been validated.
+     * invitation has been validated. Notification registration is optional,
+     * so a token already owned by another guardian must not block portal access.
      */
     public GuardianDeviceResponse registerFromEnrollment(
             Guardian guardian,
             RegisterGuardianDeviceRequest request
     ) {
-        return registerDevice(guardian, request);
+        try {
+            return registerDevice(guardian, request);
+        } catch (ResponseStatusException exception) {
+            if (HttpStatus.CONFLICT.equals(exception.getStatusCode())
+                    && DEVICE_TOKEN_CONFLICT_MESSAGE.equals(
+                    exception.getReason()
+            )) {
+                return null;
+            }
+            throw exception;
+        }
+    }
+
+    public GuardianDeviceResponse registerForCurrentSession(
+            GuardianPrincipal principal,
+            RegisterGuardianDeviceRequest request
+    ) {
+        Guardian guardian = findGuardian(principal.guardianId());
+        if (!guardian.getSchool().getId().equals(principal.schoolId())) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Guardian not found"
+            );
+        }
+
+        GuardianDeviceResponse device = registerDevice(guardian, request);
+        guardianSessionService.attachDevice(
+                principal.sessionId(),
+                principal.guardianId(),
+                device.id()
+        );
+        return device;
     }
 
     @Transactional(readOnly = true)
@@ -77,10 +115,21 @@ public class GuardianDeviceService {
                 ));
 
         device.setActive(false);
+        guardianSessionService.revokeForDevice(deviceId);
 
         return toResponse(
                 guardianDeviceRepository.save(device)
         );
+    }
+
+    public int deactivateAll(Long guardianId) {
+        List<GuardianDevice> devices = guardianDeviceRepository
+                .findAllByGuardian_IdAndActiveTrueOrderByRegisteredAtDesc(
+                        guardianId
+                );
+        devices.forEach(device -> device.setActive(false));
+        guardianDeviceRepository.saveAll(devices);
+        return devices.size();
     }
 
     private GuardianDeviceResponse registerDevice(
@@ -126,7 +175,7 @@ public class GuardianDeviceService {
         )) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "Device token is already registered to another guardian"
+                    DEVICE_TOKEN_CONFLICT_MESSAGE
             );
         }
 
@@ -171,9 +220,9 @@ public class GuardianDeviceService {
         return value.trim();
     }
 
-        private GuardianDeviceResponse toResponse(
-                GuardianDevice device
-        ) {
+    private GuardianDeviceResponse toResponse(
+            GuardianDevice device
+    ) {
         return new GuardianDeviceResponse(
                 device.getId(),
                 device.getGuardian().getId(),
@@ -182,5 +231,5 @@ public class GuardianDeviceService {
                 device.getRegisteredAt(),
                 device.getLastUsedAt()
         );
-     }
+    }
 }

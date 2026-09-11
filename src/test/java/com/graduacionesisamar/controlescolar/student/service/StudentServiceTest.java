@@ -8,6 +8,7 @@ import com.graduacionesisamar.controlescolar.schoolgroup.repository.SchoolGroupR
 import com.graduacionesisamar.controlescolar.security.service.SchoolAccessService;
 import com.graduacionesisamar.controlescolar.student.dto.CreateStudentRequest;
 import com.graduacionesisamar.controlescolar.student.dto.StudentResponse;
+import com.graduacionesisamar.controlescolar.student.dto.StudentPageResponse;
 import com.graduacionesisamar.controlescolar.student.dto.UpdateStudentRequest;
 import com.graduacionesisamar.controlescolar.student.entity.Student;
 import com.graduacionesisamar.controlescolar.student.repository.StudentRepository;
@@ -15,15 +16,20 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -135,6 +141,67 @@ class StudentServiceTest {
 
         assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
         verify(studentRepository, never()).save(any());
+    }
+
+    @Test
+    void findPageReturnsOnlyTheRequestedSliceWithNormalizedSearch() {
+        Student student = new Student();
+        student.setId(40L);
+        student.setSchool(school);
+        student.setEnrollmentNumber("MAT-001");
+        student.setFirstName("Ana");
+        student.setLastName("Pérez");
+        student.setGradeName("Primer grado");
+        student.setGroupName("A");
+        student.setSchoolGroup(group);
+        student.setActive(true);
+
+        when(schoolRepository.findById(10L))
+                .thenReturn(Optional.of(school));
+        when(studentRepository.searchBySchool(
+                eq(10L),
+                eq("ana pérez"),
+                eq(20L),
+                eq(30L),
+                eq(true),
+                any(Pageable.class)
+        )).thenReturn(new PageImpl<>(List.of(student)));
+
+        StudentPageResponse response = studentService.findPageBySchool(
+                10L,
+                0,
+                25,
+                "  Ana Pérez  ",
+                20L,
+                30L,
+                true,
+                "studentName",
+                "desc"
+        );
+
+        assertEquals(1, response.content().size());
+        assertEquals(1, response.totalElements());
+        assertEquals("MAT-001", response.content().getFirst().enrollmentNumber());
+        verify(schoolAccessService).requireAccessToSchool(10L);
+
+        ArgumentCaptor<Pageable> pageableCaptor =
+                ArgumentCaptor.forClass(Pageable.class);
+        verify(studentRepository).searchBySchool(
+                eq(10L),
+                eq("ana pérez"),
+                eq(20L),
+                eq(30L),
+                eq(true),
+                pageableCaptor.capture()
+        );
+
+        Pageable pageable = pageableCaptor.getValue();
+        assertEquals(0, pageable.getPageNumber());
+        assertEquals(25, pageable.getPageSize());
+        assertEquals(
+                org.springframework.data.domain.Sort.Direction.DESC,
+                pageable.getSort().getOrderFor("lastName").getDirection()
+        );
     }
 
     @Test

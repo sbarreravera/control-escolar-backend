@@ -19,8 +19,20 @@ public interface GuardianDeviceRepository
             Long guardianId
     );
 
+    boolean existsByIdAndGuardian_IdAndActiveTrue(
+            Long id,
+            Long guardianId
+    );
+
     List<GuardianDevice>
     findAllByGuardian_IdAndActiveTrueOrderByRegisteredAtDesc(
             Long guardianId
     );
+
+    List<GuardianDevice> findAllByGuardian_School_Id(Long schoolId);
+
+    List<GuardianDevice> findAllByGuardian_IdIn(List<Long> guardianIds);
+
+    List<GuardianDevice>
+    findAllByGuardian_IdInAndActiveTrue(List<Long> guardianIds);
 }
