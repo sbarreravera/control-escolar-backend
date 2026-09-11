@@ -2,10 +2,12 @@ package com.graduacionesisamar.controlescolar.academiccycle.service;
 
 import com.graduacionesisamar.controlescolar.academiccycle.dto.AcademicCycleResponse;
 import com.graduacionesisamar.controlescolar.academiccycle.dto.CreateAcademicCycleRequest;
+import com.graduacionesisamar.controlescolar.academiccycle.dto.UpdateAcademicCycleRequest;
 import com.graduacionesisamar.controlescolar.academiccycle.entity.AcademicCycle;
 import com.graduacionesisamar.controlescolar.academiccycle.repository.AcademicCycleRepository;
 import com.graduacionesisamar.controlescolar.school.entity.School;
 import com.graduacionesisamar.controlescolar.school.repository.SchoolRepository;
+import com.graduacionesisamar.controlescolar.schoolgroup.repository.SchoolGroupRepository;
 import com.graduacionesisamar.controlescolar.security.service.SchoolAccessService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,6 +22,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -37,6 +40,9 @@ class AcademicCycleServiceTest {
     private SchoolRepository schoolRepository;
 
     @Mock
+    private SchoolGroupRepository schoolGroupRepository;
+
+    @Mock
     private SchoolAccessService schoolAccessService;
 
     private AcademicCycleService academicCycleService;
@@ -47,6 +53,7 @@ class AcademicCycleServiceTest {
         academicCycleService = new AcademicCycleService(
                 academicCycleRepository,
                 schoolRepository,
+                schoolGroupRepository,
                 schoolAccessService
         );
 
@@ -79,6 +86,7 @@ class AcademicCycleServiceTest {
         assertEquals(10L, response.schoolId());
         assertEquals("2026 - 2027", response.name());
         assertTrue(response.active());
+        assertFalse(response.hasGroups());
         verify(schoolAccessService).requireAccessToSchool(10L);
     }
 
@@ -126,7 +134,112 @@ class AcademicCycleServiceTest {
     }
 
     @Test
-    void findAllReturnsSchoolCyclesOrderedByRepository() {
+    void updateAllowsCorrectionsEvenWhenCycleHasGroups() {
+        AcademicCycle cycle = existingCycle();
+        UpdateAcademicCycleRequest request = new UpdateAcademicCycleRequest(
+                "  Ciclo 2026 - 2027 corregido  ",
+                LocalDate.of(2026, 8, 31),
+                LocalDate.of(2027, 7, 16)
+        );
+
+        when(academicCycleRepository.findById(20L))
+                .thenReturn(Optional.of(cycle));
+        when(academicCycleRepository.save(cycle)).thenReturn(cycle);
+        when(schoolGroupRepository.existsByAcademicCycle_Id(20L))
+                .thenReturn(true);
+
+        AcademicCycleResponse response =
+                academicCycleService.update(20L, request);
+
+        assertEquals("Ciclo 2026 - 2027 corregido", response.name());
+        assertEquals(LocalDate.of(2026, 8, 31), response.startDate());
+        assertEquals(LocalDate.of(2027, 7, 16), response.endDate());
+        assertTrue(response.hasGroups());
+        verify(schoolAccessService).requireAccessToSchool(10L);
+    }
+
+    @Test
+    void updateRejectsDuplicatedNameWithinSchool() {
+        AcademicCycle cycle = existingCycle();
+        UpdateAcademicCycleRequest request = new UpdateAcademicCycleRequest(
+                "2025-2026",
+                cycle.getStartDate(),
+                cycle.getEndDate()
+        );
+
+        when(academicCycleRepository.findById(20L))
+                .thenReturn(Optional.of(cycle));
+        when(academicCycleRepository
+                .existsBySchool_IdAndNameIgnoreCaseAndIdNot(
+                        10L,
+                        "2025-2026",
+                        20L
+                ))
+                .thenReturn(true);
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> academicCycleService.update(20L, request)
+        );
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+        verify(academicCycleRepository, never()).save(any());
+    }
+
+    @Test
+    void deleteRejectsCycleWithAssociatedGroups() {
+        AcademicCycle cycle = existingCycle();
+
+        when(academicCycleRepository.findById(20L))
+                .thenReturn(Optional.of(cycle));
+        when(schoolGroupRepository.existsByAcademicCycle_Id(20L))
+                .thenReturn(true);
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> academicCycleService.delete(20L)
+        );
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+        verify(academicCycleRepository, never()).delete(any());
+    }
+
+    @Test
+    void deleteRemovesCycleWithoutAssociatedGroups() {
+        AcademicCycle cycle = existingCycle();
+
+        when(academicCycleRepository.findById(20L))
+                .thenReturn(Optional.of(cycle));
+        when(schoolGroupRepository.existsByAcademicCycle_Id(20L))
+                .thenReturn(false);
+
+        academicCycleService.delete(20L);
+
+        verify(schoolAccessService).requireAccessToSchool(10L);
+        verify(academicCycleRepository).delete(cycle);
+    }
+
+    @Test
+    void findAllReturnsWhetherEachCycleHasGroups() {
+        AcademicCycle cycle = existingCycle();
+
+        when(schoolRepository.findById(10L)).thenReturn(Optional.of(school));
+        when(academicCycleRepository
+                .findAllBySchool_IdOrderByStartDateDesc(10L))
+                .thenReturn(List.of(cycle));
+        when(schoolGroupRepository.existsByAcademicCycle_Id(20L))
+                .thenReturn(true);
+
+        List<AcademicCycleResponse> response =
+                academicCycleService.findAllBySchool(10L);
+
+        assertEquals(1, response.size());
+        assertEquals("2026-2027", response.getFirst().name());
+        assertTrue(response.getFirst().hasGroups());
+        verify(schoolAccessService).requireAccessToSchool(10L);
+    }
+
+    private AcademicCycle existingCycle() {
         AcademicCycle cycle = new AcademicCycle();
         cycle.setId(20L);
         cycle.setSchool(school);
@@ -134,17 +247,6 @@ class AcademicCycleServiceTest {
         cycle.setStartDate(LocalDate.of(2026, 8, 24));
         cycle.setEndDate(LocalDate.of(2027, 7, 9));
         cycle.beforeInsert();
-
-        when(schoolRepository.findById(10L)).thenReturn(Optional.of(school));
-        when(academicCycleRepository
-                .findAllBySchool_IdOrderByStartDateDesc(10L))
-                .thenReturn(List.of(cycle));
-
-        List<AcademicCycleResponse> response =
-                academicCycleService.findAllBySchool(10L);
-
-        assertEquals(1, response.size());
-        assertEquals("2026-2027", response.getFirst().name());
-        verify(schoolAccessService).requireAccessToSchool(10L);
+        return cycle;
     }
 }
