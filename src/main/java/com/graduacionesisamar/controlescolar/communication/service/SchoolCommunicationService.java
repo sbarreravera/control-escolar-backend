@@ -102,38 +102,25 @@ public class SchoolCommunicationService {
 
     public CommunicationResponse updateScheduled(
             Long communicationId,
-            CreateCommunicationRequest request
+            UpdateScheduledCommunicationRequest request
     ) {
         SchoolCommunication communication = requireCommunication(communicationId);
         if (communication.getStatus() != CommunicationStatus.SCHEDULED) {
             throw conflict("Sólo los avisos programados pueden editarse.");
         }
-        if (request.scheduledAt() == null
-                || !request.scheduledAt().isAfter(OffsetDateTime.now())) {
+        if (!request.scheduledAt().isAfter(OffsetDateTime.now())) {
             throw badRequest("La nueva fecha programada debe estar en el futuro.");
         }
-        if (!Objects.equals(
-                communication.getSchool().getId(),
-                request.audience().schoolId()
-        )) {
-            throw badRequest("La escuela del aviso no puede cambiarse.");
-        }
 
-        ResolvedAudience audience = resolveAudience(request.audience());
-        requireRecipients(audience);
-        applyContent(communication, request, audience);
-        communication.setScheduledAt(request.scheduledAt());
-        communication.setPushRecipientCount(
-                activePushGuardianIds(audience.guardians()).size()
+        communication.setType(request.type());
+        communication.setCategory(request.category());
+        communication.setPriority(request.priority());
+        communication.setTitle(request.title().trim());
+        communication.setMessage(request.message().trim());
+        communication.setRequiresAcknowledgement(
+                request.requiresAcknowledgement()
         );
-
-        recipientRepository.deleteAllByCommunication_Id(communicationId);
-        recipientRepository.flush();
-        recipientRepository.saveAll(createRecipients(
-                communication,
-                audience.guardians()
-        ));
-
+        communication.setScheduledAt(request.scheduledAt());
         communicationRepository.save(communication);
         return toResponse(communication);
     }

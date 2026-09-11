@@ -37,7 +37,7 @@ public class SchoolCommunicationController {
     @PutMapping("/{communicationId}")
     public CommunicationResponse updateScheduled(
             @PathVariable @Positive Long communicationId,
-            @Valid @RequestBody CreateCommunicationRequest request
+            @Valid @RequestBody UpdateScheduledCommunicationRequest request
     ) {
         return communicationService.updateScheduled(communicationId, request);
     }

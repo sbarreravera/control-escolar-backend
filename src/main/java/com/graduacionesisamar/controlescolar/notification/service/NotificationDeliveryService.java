@@ -131,7 +131,7 @@ public class NotificationDeliveryService {
                         "communicationId", String.valueOf(communication.getId()),
                         "communicationRecipientId", String.valueOf(recipient.getId()),
                         "notificationType", "COMMUNICATION",
-                        "route", "/#/guardian?communicationId=" + communication.getId()
+                        "route", "/#/guardian/communications?communicationId=" + communication.getId()
                 )
         );
     }
