@@ -28,6 +28,8 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
             Long studentId
     );
 
+    boolean existsBySchoolGroup_Id(Long schoolGroupId);
+
     List<Student> findAllBySchool_IdOrderByLastNameAscFirstNameAsc(
             Long schoolId
     );
