@@ -1,5 +1,9 @@
 package com.graduacionesisamar.controlescolar.notification.service;
 
+import com.graduacionesisamar.controlescolar.communication.entity.CommunicationRecipientPushStatus;
+import com.graduacionesisamar.controlescolar.communication.entity.SchoolCommunication;
+import com.graduacionesisamar.controlescolar.communication.entity.SchoolCommunicationRecipient;
+import com.graduacionesisamar.controlescolar.communication.repository.SchoolCommunicationRecipientRepository;
 import com.graduacionesisamar.controlescolar.guardiandevice.entity.GuardianDevice;
 import com.graduacionesisamar.controlescolar.guardiandevice.repository.GuardianDeviceRepository;
 import com.graduacionesisamar.controlescolar.notification.client.PushNotificationClient;
@@ -24,38 +28,26 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 @Transactional
-@ConditionalOnProperty(
-        name = "app.firebase.enabled",
-        havingValue = "true"
-)
+@ConditionalOnProperty(name = "app.firebase.enabled", havingValue = "true")
 public class NotificationDeliveryService {
 
     private static final int MAX_ERROR_LENGTH = 1000;
 
     private final NotificationLogRepository notificationLogRepository;
     private final GuardianDeviceRepository guardianDeviceRepository;
+    private final SchoolCommunicationRecipientRepository recipientRepository;
     private final PushNotificationClient pushNotificationClient;
 
-    /**
-     * Processes up to 50 pending notifications.
-     *
-     * @return number of notifications delivered to at least one device
-     */
     public int deliverPending() {
-        List<NotificationLog> pendingNotifications =
-                notificationLogRepository
-                        .findTop50ByStatusOrderByCreatedAtAsc(
-                                NotificationStatus.PENDING
-                        );
+        List<NotificationLog> pendingNotifications = notificationLogRepository
+                .findTop50ByStatusOrderByCreatedAtAsc(NotificationStatus.PENDING);
 
         int deliveredNotifications = 0;
-
         for (NotificationLog notification : pendingNotifications) {
             if (deliver(notification)) {
                 deliveredNotifications++;
             }
         }
-
         return deliveredNotifications;
     }
 
@@ -66,10 +58,9 @@ public class NotificationDeliveryService {
                 );
 
         if (devices.isEmpty()) {
-            markAsFailed(
-                    notification,
-                    "Guardian has no active registered devices"
-            );
+            String message = "Guardian has no active registered devices";
+            markAsFailed(notification, message);
+            updateCommunicationRecipientFailed(notification, message);
             return false;
         }
 
@@ -79,17 +70,13 @@ public class NotificationDeliveryService {
 
         for (GuardianDevice device : devices) {
             try {
-                pushNotificationClient.send(
-                        buildRequest(notification, device)
-                );
-
+                pushNotificationClient.send(buildRequest(notification, device));
                 device.setLastUsedAt(deliveryTime);
                 successfulDeliveries++;
             } catch (PushNotificationException exception) {
                 if (exception.isInvalidToken()) {
                     device.setActive(false);
                 }
-
                 deliveryErrors.add(exception.getMessage());
             }
         }
@@ -97,7 +84,8 @@ public class NotificationDeliveryService {
         guardianDeviceRepository.saveAll(devices);
 
         if (successfulDeliveries > 0) {
-            markAsSent(
+            markAsSent(notification, deliveryTime, deliveryErrors.size());
+            updateCommunicationRecipientSent(
                     notification,
                     deliveryTime,
                     deliveryErrors.size()
@@ -105,10 +93,9 @@ public class NotificationDeliveryService {
             return true;
         }
 
-        markAsFailed(
-                notification,
-                buildFailureMessage(deliveryErrors)
-        );
+        String failure = buildFailureMessage(deliveryErrors);
+        markAsFailed(notification, failure);
+        updateCommunicationRecipientFailed(notification, failure);
         return false;
     }
 
@@ -116,36 +103,73 @@ public class NotificationDeliveryService {
             NotificationLog notification,
             GuardianDevice device
     ) {
+        if (notification.getAccessEvent() != null) {
+            return new PushNotificationRequest(
+                    device.getFcmToken(),
+                    notification.getTitle(),
+                    notification.getMessage(),
+                    Map.of(
+                            "notificationLogId", String.valueOf(notification.getId()),
+                            "accessEventId", String.valueOf(notification.getAccessEvent().getId()),
+                            "studentId", String.valueOf(notification.getAccessEvent().getStudent().getId()),
+                            "eventType", notification.getAccessEvent().getEventType().name(),
+                            "occurredAt", notification.getAccessEvent().getOccurredAt().toString(),
+                            "route", "/#/guardian?eventId=" + notification.getAccessEvent().getId()
+                    )
+            );
+        }
+
+        SchoolCommunicationRecipient recipient =
+                notification.getCommunicationRecipient();
+        SchoolCommunication communication = recipient.getCommunication();
         return new PushNotificationRequest(
                 device.getFcmToken(),
                 notification.getTitle(),
                 notification.getMessage(),
                 Map.of(
-                        "notificationLogId",
-                        String.valueOf(notification.getId()),
-                        "accessEventId",
-                        String.valueOf(
-                                notification.getAccessEvent().getId()
-                        ),
-                        "studentId",
-                        String.valueOf(
-                                notification.getAccessEvent()
-                                        .getStudent()
-                                        .getId()
-                        ),
-                        "eventType",
-                        notification.getAccessEvent()
-                                .getEventType()
-                                .name(),
-                        "occurredAt",
-                        notification.getAccessEvent()
-                                .getOccurredAt()
-                                .toString(),
-                        "route",
-                        "/#/guardian?eventId="
-                                + notification.getAccessEvent().getId()
+                        "notificationLogId", String.valueOf(notification.getId()),
+                        "communicationId", String.valueOf(communication.getId()),
+                        "communicationRecipientId", String.valueOf(recipient.getId()),
+                        "notificationType", "COMMUNICATION",
+                        "route", "/#/guardian?communicationId=" + communication.getId()
                 )
         );
+    }
+
+    private void updateCommunicationRecipientSent(
+            NotificationLog notification,
+            OffsetDateTime sentAt,
+            int failedDevices
+    ) {
+        SchoolCommunicationRecipient recipient =
+                notification.getCommunicationRecipient();
+        if (recipient == null) {
+            return;
+        }
+        recipient.setPushStatus(CommunicationRecipientPushStatus.SENT);
+        recipient.setPushSentAt(sentAt);
+        recipient.setPushError(
+                failedDevices == 0
+                        ? null
+                        : "%d intento(s) de entrega a dispositivo fallaron"
+                        .formatted(failedDevices)
+        );
+        recipientRepository.save(recipient);
+    }
+
+    private void updateCommunicationRecipientFailed(
+            NotificationLog notification,
+            String error
+    ) {
+        SchoolCommunicationRecipient recipient =
+                notification.getCommunicationRecipient();
+        if (recipient == null) {
+            return;
+        }
+        recipient.setPushStatus(CommunicationRecipientPushStatus.FAILED);
+        recipient.setPushSentAt(null);
+        recipient.setPushError(truncateError(error));
+        recipientRepository.save(recipient);
     }
 
     private void markAsSent(
@@ -155,16 +179,11 @@ public class NotificationDeliveryService {
     ) {
         notification.setStatus(NotificationStatus.SENT);
         notification.setSentAt(sentAt);
-
-        if (failedDevices == 0) {
-            notification.setErrorMessage(null);
-        } else {
-            notification.setErrorMessage(
-                    "%d device delivery attempt(s) failed"
-                            .formatted(failedDevices)
-            );
-        }
-
+        notification.setErrorMessage(
+                failedDevices == 0
+                        ? null
+                        : "%d device delivery attempt(s) failed".formatted(failedDevices)
+        );
         notificationLogRepository.save(notification);
     }
 
@@ -174,34 +193,23 @@ public class NotificationDeliveryService {
     ) {
         notification.setStatus(NotificationStatus.FAILED);
         notification.setSentAt(null);
-        notification.setErrorMessage(
-                truncateError(errorMessage)
-        );
-
+        notification.setErrorMessage(truncateError(errorMessage));
         notificationLogRepository.save(notification);
     }
 
-    private String buildFailureMessage(
-            List<String> deliveryErrors
-    ) {
+    private String buildFailureMessage(List<String> deliveryErrors) {
         if (deliveryErrors.isEmpty()) {
             return "Notification could not be delivered";
         }
-
-        return truncateError(
-                String.join("; ", deliveryErrors)
-        );
+        return truncateError(String.join("; ", deliveryErrors));
     }
 
     private String truncateError(String errorMessage) {
         if (errorMessage == null) {
             return null;
         }
-
-        if (errorMessage.length() <= MAX_ERROR_LENGTH) {
-            return errorMessage;
-        }
-
-        return errorMessage.substring(0, MAX_ERROR_LENGTH);
+        return errorMessage.length() <= MAX_ERROR_LENGTH
+                ? errorMessage
+                : errorMessage.substring(0, MAX_ERROR_LENGTH);
     }
 }

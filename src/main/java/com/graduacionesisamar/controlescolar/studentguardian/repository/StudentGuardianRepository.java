@@ -33,6 +33,23 @@ public interface StudentGuardianRepository
 
     List<StudentGuardian> findAllByStudent_School_Id(Long schoolId);
 
+    @Query("""
+            SELECT link
+            FROM StudentGuardian link
+            JOIN FETCH link.student student
+            JOIN FETCH link.guardian guardian
+            LEFT JOIN FETCH student.schoolGroup schoolGroup
+            LEFT JOIN FETCH schoolGroup.academicCycle academicCycle
+            WHERE student.school.id = :schoolId
+              AND student.active = true
+              AND guardian.active = true
+              AND link.receivesNotifications = true
+            ORDER BY guardian.id, student.id
+            """)
+    List<StudentGuardian> findCommunicationCandidates(
+            @Param("schoolId") Long schoolId
+    );
+
     /**
      * Lists every student related to the guardian represented by the active
      * session, including inactive students whose historical events remain

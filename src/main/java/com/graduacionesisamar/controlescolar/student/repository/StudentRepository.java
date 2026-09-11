@@ -34,6 +34,19 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
             Long schoolId
     );
 
+    @Query("""
+            SELECT student
+            FROM Student student
+            LEFT JOIN FETCH student.schoolGroup schoolGroup
+            LEFT JOIN FETCH schoolGroup.academicCycle academicCycle
+            WHERE student.school.id = :schoolId
+              AND student.active = true
+            ORDER BY student.lastName, student.firstName, student.id
+            """)
+    List<Student> findCommunicationAudienceStudents(
+            @Param("schoolId") Long schoolId
+    );
+
     /**
      * Searches a school's students without loading the complete roster.
      */

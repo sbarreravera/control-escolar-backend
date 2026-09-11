@@ -46,6 +46,7 @@ public class SecurityConfiguration {
                         .requestMatchers("/api/v1/student-imports/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/guardian-imports/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/guardian-activations/**").hasRole("ADMIN")
+                        .requestMatchers("/api/v1/communications/**").hasRole("ADMIN")
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/v1/guardians/*/device-enrollments"
@@ -62,9 +63,7 @@ public class SecurityConfiguration {
                         .usernameParameter("email")
                         .passwordParameter("password")
                         .successHandler((request, response, authentication) ->
-                                response.setStatus(
-                                        HttpServletResponse.SC_NO_CONTENT
-                                )
+                                response.setStatus(HttpServletResponse.SC_NO_CONTENT)
                         )
                         .failureHandler((request, response, exception) ->
                                 writeJsonError(
@@ -79,27 +78,23 @@ public class SecurityConfiguration {
                         .invalidateHttpSession(true)
                         .deleteCookies("JSESSIONID")
                         .logoutSuccessHandler((request, response, authentication) ->
-                                response.setStatus(
-                                        HttpServletResponse.SC_NO_CONTENT
-                                )
+                                response.setStatus(HttpServletResponse.SC_NO_CONTENT)
                         )
                 )
                 .exceptionHandling(exceptions -> exceptions
-                        .authenticationEntryPoint(
-                                (request, response, exception) ->
-                                        writeJsonError(
-                                                response,
-                                                HttpServletResponse.SC_UNAUTHORIZED,
-                                                "Se requiere iniciar sesión"
-                                        )
+                        .authenticationEntryPoint((request, response, exception) ->
+                                writeJsonError(
+                                        response,
+                                        HttpServletResponse.SC_UNAUTHORIZED,
+                                        "Se requiere iniciar sesión"
+                                )
                         )
-                        .accessDeniedHandler(
-                                (request, response, exception) ->
-                                        writeJsonError(
-                                                response,
-                                                HttpServletResponse.SC_FORBIDDEN,
-                                                "Acceso denegado"
-                                        )
+                        .accessDeniedHandler((request, response, exception) ->
+                                writeJsonError(
+                                        response,
+                                        HttpServletResponse.SC_FORBIDDEN,
+                                        "Acceso denegado"
+                                )
                         )
                 );
 
@@ -114,8 +109,6 @@ public class SecurityConfiguration {
         response.setStatus(status);
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        response.getWriter().write(
-                "{\"message\":\"" + message + "\"}"
-        );
+        response.getWriter().write("{\"message\":\"" + message + "\"}");
     }
 }
