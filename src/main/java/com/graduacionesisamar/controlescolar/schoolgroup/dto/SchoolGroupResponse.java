@@ -13,6 +13,7 @@ public record SchoolGroupResponse(
         String gradeName,
         String groupName,
         Boolean active,
+        Boolean hasStudents,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt
 ) {

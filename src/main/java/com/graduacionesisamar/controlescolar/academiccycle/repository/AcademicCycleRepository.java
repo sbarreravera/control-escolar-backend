@@ -16,6 +16,12 @@ public interface AcademicCycleRepository
             String name
     );
 
+    boolean existsBySchool_IdAndNameIgnoreCaseAndIdNot(
+            Long schoolId,
+            String name,
+            Long academicCycleId
+    );
+
     List<AcademicCycle> findAllBySchool_IdOrderByStartDateDesc(
             Long schoolId
     );

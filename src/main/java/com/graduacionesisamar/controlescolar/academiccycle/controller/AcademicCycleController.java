@@ -2,6 +2,7 @@ package com.graduacionesisamar.controlescolar.academiccycle.controller;
 
 import com.graduacionesisamar.controlescolar.academiccycle.dto.AcademicCycleResponse;
 import com.graduacionesisamar.controlescolar.academiccycle.dto.CreateAcademicCycleRequest;
+import com.graduacionesisamar.controlescolar.academiccycle.dto.UpdateAcademicCycleRequest;
 import com.graduacionesisamar.controlescolar.academiccycle.service.AcademicCycleService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,20 @@ public class AcademicCycleController {
             @Valid @RequestBody CreateAcademicCycleRequest request
     ) {
         return academicCycleService.create(request);
+    }
+
+    @PutMapping("/{academicCycleId}")
+    public AcademicCycleResponse update(
+            @PathVariable Long academicCycleId,
+            @Valid @RequestBody UpdateAcademicCycleRequest request
+    ) {
+        return academicCycleService.update(academicCycleId, request);
+    }
+
+    @DeleteMapping("/{academicCycleId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable Long academicCycleId) {
+        academicCycleService.delete(academicCycleId);
     }
 
     @GetMapping

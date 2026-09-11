@@ -10,10 +10,19 @@ import java.util.List;
  */
 public interface SchoolGroupRepository extends JpaRepository<SchoolGroup, Long> {
 
+    boolean existsByAcademicCycle_Id(Long academicCycleId);
+
     boolean existsByAcademicCycle_IdAndGradeNameIgnoreCaseAndGroupNameIgnoreCase(
             Long academicCycleId,
             String gradeName,
             String groupName
+    );
+
+    boolean existsByAcademicCycle_IdAndGradeNameIgnoreCaseAndGroupNameIgnoreCaseAndIdNot(
+            Long academicCycleId,
+            String gradeName,
+            String groupName,
+            Long schoolGroupId
     );
 
     List<SchoolGroup> findAllByAcademicCycle_IdOrderByGradeNameAscGroupNameAsc(
