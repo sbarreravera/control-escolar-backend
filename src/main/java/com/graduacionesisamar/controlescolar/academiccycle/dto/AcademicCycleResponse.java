@@ -14,6 +14,7 @@ public record AcademicCycleResponse(
         LocalDate startDate,
         LocalDate endDate,
         Boolean active,
+        boolean hasGroups,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt
 ) {
