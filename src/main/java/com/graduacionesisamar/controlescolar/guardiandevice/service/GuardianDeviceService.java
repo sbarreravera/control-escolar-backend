@@ -38,7 +38,7 @@ public class GuardianDeviceService {
         Guardian guardian = findGuardian(guardianId);
         requireGuardianSchoolAccess(guardian);
 
-        return registerDevice(guardian, request);
+        return registerDevice(guardian, request, false);
     }
 
     /**
@@ -51,7 +51,7 @@ public class GuardianDeviceService {
             RegisterGuardianDeviceRequest request
     ) {
         try {
-            return registerDevice(guardian, request);
+            return registerDevice(guardian, request, false);
         } catch (ResponseStatusException exception) {
             if (HttpStatus.CONFLICT.equals(exception.getStatusCode())
                     && DEVICE_TOKEN_CONFLICT_MESSAGE.equals(
@@ -63,6 +63,12 @@ public class GuardianDeviceService {
         }
     }
 
+    /**
+     * Registers notifications from an already authenticated guardian session.
+     * In this flow possession of the current FCM token proves that the browser
+     * is the device being configured, so an old ownership can be transferred
+     * safely after revoking sessions that referenced that device record.
+     */
     public GuardianDeviceResponse registerForCurrentSession(
             GuardianPrincipal principal,
             RegisterGuardianDeviceRequest request
@@ -75,7 +81,11 @@ public class GuardianDeviceService {
             );
         }
 
-        GuardianDeviceResponse device = registerDevice(guardian, request);
+        GuardianDeviceResponse device = registerDevice(
+                guardian,
+                request,
+                true
+        );
         guardianSessionService.attachDevice(
                 principal.sessionId(),
                 principal.guardianId(),
@@ -134,7 +144,8 @@ public class GuardianDeviceService {
 
     private GuardianDeviceResponse registerDevice(
             Guardian guardian,
-            RegisterGuardianDeviceRequest request
+            RegisterGuardianDeviceRequest request,
+            boolean allowOwnershipTransfer
     ) {
         if (!Boolean.TRUE.equals(guardian.getActive())) {
             throw new ResponseStatusException(
@@ -150,7 +161,8 @@ public class GuardianDeviceService {
                 .map(existingDevice -> updateExistingDevice(
                         existingDevice,
                         guardian,
-                        request
+                        request,
+                        allowOwnershipTransfer
                 ))
                 .orElseGet(() -> buildDevice(
                         guardian,
@@ -167,16 +179,24 @@ public class GuardianDeviceService {
     private GuardianDevice updateExistingDevice(
             GuardianDevice device,
             Guardian guardian,
-            RegisterGuardianDeviceRequest request
+            RegisterGuardianDeviceRequest request,
+            boolean allowOwnershipTransfer
     ) {
-        if (!Objects.equals(
+        boolean belongsToAnotherGuardian = !Objects.equals(
                 device.getGuardian().getId(),
                 guardian.getId()
-        )) {
+        );
+
+        if (belongsToAnotherGuardian && !allowOwnershipTransfer) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     DEVICE_TOKEN_CONFLICT_MESSAGE
             );
+        }
+
+        if (belongsToAnotherGuardian) {
+            guardianSessionService.revokeForDevice(device.getId());
+            device.setGuardian(guardian);
         }
 
         device.setDeviceName(trimNullable(request.deviceName()));
