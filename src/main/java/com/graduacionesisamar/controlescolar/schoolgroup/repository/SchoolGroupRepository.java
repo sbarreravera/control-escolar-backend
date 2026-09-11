@@ -18,6 +18,13 @@ public interface SchoolGroupRepository extends JpaRepository<SchoolGroup, Long> 
             String groupName
     );
 
+    boolean existsByAcademicCycle_IdAndGradeNameIgnoreCaseAndGroupNameIgnoreCaseAndIdNot(
+            Long academicCycleId,
+            String gradeName,
+            String groupName,
+            Long schoolGroupId
+    );
+
     List<SchoolGroup> findAllByAcademicCycle_IdOrderByGradeNameAscGroupNameAsc(
             Long academicCycleId
     );
