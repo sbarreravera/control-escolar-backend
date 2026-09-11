@@ -23,6 +23,9 @@ import java.util.Objects;
 @Transactional
 public class GuardianDeviceService {
 
+    private static final String DEVICE_TOKEN_CONFLICT_MESSAGE =
+            "Device token is already registered to another guardian";
+
     private final GuardianDeviceRepository guardianDeviceRepository;
     private final GuardianRepository guardianRepository;
     private final SchoolAccessService schoolAccessService;
@@ -40,13 +43,24 @@ public class GuardianDeviceService {
 
     /**
      * Registers a device after its temporary enrollment
-     * invitation has been validated.
+     * invitation has been validated. Notification registration is optional,
+     * so a token already owned by another guardian must not block portal access.
      */
     public GuardianDeviceResponse registerFromEnrollment(
             Guardian guardian,
             RegisterGuardianDeviceRequest request
     ) {
-        return registerDevice(guardian, request);
+        try {
+            return registerDevice(guardian, request);
+        } catch (ResponseStatusException exception) {
+            if (HttpStatus.CONFLICT.equals(exception.getStatusCode())
+                    && DEVICE_TOKEN_CONFLICT_MESSAGE.equals(
+                    exception.getReason()
+            )) {
+                return null;
+            }
+            throw exception;
+        }
     }
 
     public GuardianDeviceResponse registerForCurrentSession(
@@ -161,7 +175,7 @@ public class GuardianDeviceService {
         )) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "Device token is already registered to another guardian"
+                    DEVICE_TOKEN_CONFLICT_MESSAGE
             );
         }
 
