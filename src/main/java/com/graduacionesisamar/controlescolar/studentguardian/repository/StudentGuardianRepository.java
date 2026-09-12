@@ -33,6 +33,11 @@ public interface StudentGuardianRepository
 
     List<StudentGuardian> findAllByStudent_School_Id(Long schoolId);
 
+    List<StudentGuardian>
+    findAllByGuardian_IdOrderByStudent_LastNameAscStudent_FirstNameAsc(
+            Long guardianId
+    );
+
     /**
      * Returns every active guardian relation for active students in a school.
      * School communications are durable portal messages; the legacy

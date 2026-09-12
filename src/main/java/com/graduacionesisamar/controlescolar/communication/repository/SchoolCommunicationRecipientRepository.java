@@ -28,6 +28,12 @@ public interface SchoolCommunicationRecipientRepository
 
     long countByCommunication_IdAndAcknowledgedAtIsNotNull(Long communicationId);
 
+    long countByGuardian_Id(Long guardianId);
+
+    @Modifying
+    @Query("DELETE FROM SchoolCommunicationRecipient recipient WHERE recipient.guardian.id = :guardianId")
+    int deleteAllForGuardian(@Param("guardianId") Long guardianId);
+
     @Query("""
             SELECT recipient
             FROM SchoolCommunicationRecipient recipient

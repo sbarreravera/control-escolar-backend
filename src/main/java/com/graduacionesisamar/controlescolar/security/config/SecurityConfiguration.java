@@ -51,6 +51,14 @@ public class SecurityConfiguration {
                                 HttpMethod.POST,
                                 "/api/v1/guardians/*/device-enrollments"
                         ).hasRole("ADMIN")
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/v1/guardians/*/deletion-impact"
+                        ).hasRole("ADMIN")
+                        .requestMatchers(
+                                HttpMethod.DELETE,
+                                "/api/v1/guardians/*"
+                        ).hasRole("ADMIN")
                         .requestMatchers("/api/v1/guardian/**").hasRole("GUARDIAN")
                         .anyRequest().authenticated()
                 )
