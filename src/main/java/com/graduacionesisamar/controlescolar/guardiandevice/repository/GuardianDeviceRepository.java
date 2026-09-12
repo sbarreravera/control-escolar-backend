@@ -24,6 +24,8 @@ public interface GuardianDeviceRepository
             Long guardianId
     );
 
+    long countByGuardian_IdAndActiveTrue(Long guardianId);
+
     List<GuardianDevice>
     findAllByGuardian_IdAndActiveTrueOrderByRegisteredAtDesc(
             Long guardianId
