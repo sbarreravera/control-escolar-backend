@@ -23,6 +23,18 @@ public interface StudentGuardianRepository
 
     long countByStudent_Id(Long studentId);
 
+    @Query("""
+            SELECT link.student.id
+            FROM StudentGuardian link
+            WHERE link.student.school.id = :schoolId
+            GROUP BY link.student.id
+            HAVING COUNT(link) > :maximum
+            """)
+    List<Long> findStudentIdsExceedingGuardianLimit(
+            @Param("schoolId") Long schoolId,
+            @Param("maximum") long maximum
+    );
+
     List<StudentGuardian>
     findAllByStudent_IdOrderByPrimaryContactDescGuardian_FullNameAsc(
             Long studentId
