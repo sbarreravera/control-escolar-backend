@@ -21,6 +21,8 @@ public interface StudentGuardianRepository
 
     boolean existsByStudent_IdAndPrimaryContactTrue(Long studentId);
 
+    long countByStudent_Id(Long studentId);
+
     List<StudentGuardian>
     findAllByStudent_IdOrderByPrimaryContactDescGuardian_FullNameAsc(
             Long studentId
