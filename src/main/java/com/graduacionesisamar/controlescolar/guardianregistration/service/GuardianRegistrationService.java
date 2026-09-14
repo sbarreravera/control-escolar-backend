@@ -25,9 +25,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -58,6 +60,10 @@ public class GuardianRegistrationService {
         School school = findSchool(schoolId);
         validateRange(
                 request.minimumGuardiansPerStudent(),
+                request.maximumGuardiansPerStudent()
+        );
+        validateExistingRelationships(
+                schoolId,
                 request.maximumGuardiansPerStudent()
         );
         school.setGuardianSelfRegistrationEnabled(request.enabled());
@@ -220,15 +226,15 @@ public class GuardianRegistrationService {
                     "Too many students in one registration"
             );
         }
-        return unique.stream().sorted().toList();
+        return List.copyOf(unique);
     }
 
     private List<Student> lockAndValidateStudents(
             School school,
             List<String> enrollmentNumbers
     ) {
-        List<Student> students = new ArrayList<>();
-        for (String enrollmentNumber : enrollmentNumbers) {
+        Map<String, Student> byEnrollment = new LinkedHashMap<>();
+        for (String enrollmentNumber : enrollmentNumbers.stream().sorted().toList()) {
             Student student = studentRepository
                     .findBySchoolAndEnrollmentNumberForUpdate(
                             school.getId(),
@@ -255,9 +261,12 @@ public class GuardianRegistrationService {
                         "Student already reached the maximum number of guardians allowed by the school"
                 );
             }
-            students.add(student);
+            byEnrollment.put(enrollmentNumber, student);
         }
-        return students;
+
+        return enrollmentNumbers.stream()
+                .map(byEnrollment::get)
+                .toList();
     }
 
     private String generateGuardianReference(
@@ -303,6 +312,23 @@ public class GuardianRegistrationService {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Maximum guardians per student must be greater than or equal to the minimum"
+            );
+        }
+    }
+
+    private void validateExistingRelationships(
+            Long schoolId,
+            int maximum
+    ) {
+        List<Long> exceeding = studentGuardianRepository
+                .findStudentIdsExceedingGuardianLimit(
+                        schoolId,
+                        maximum
+                );
+        if (!exceeding.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Some students already have more guardians than the requested maximum"
             );
         }
     }
