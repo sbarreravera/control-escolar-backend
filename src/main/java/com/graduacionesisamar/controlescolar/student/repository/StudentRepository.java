@@ -117,4 +117,20 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT student FROM Student student WHERE student.id = :id")
     Optional<Student> findByIdForUpdate(@Param("id") Long id);
+
+    /**
+     * Finds and locks a school-scoped student while a public guardian
+     * registration validates the configured guardian limit.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT student
+            FROM Student student
+            WHERE student.school.id = :schoolId
+              AND LOWER(student.enrollmentNumber) = LOWER(:enrollmentNumber)
+            """)
+    Optional<Student> findBySchoolAndEnrollmentNumberForUpdate(
+            @Param("schoolId") Long schoolId,
+            @Param("enrollmentNumber") String enrollmentNumber
+    );
 }

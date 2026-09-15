@@ -31,7 +31,7 @@ public class StudentGuardianService {
     public StudentGuardianResponse create(
             CreateStudentGuardianRequest request
     ) {
-        Student student = findStudent(request.studentId());
+        Student student = findStudentForUpdate(request.studentId());
         schoolAccessService.requireAccessToSchool(
                 student.getSchool().getId()
         );
@@ -97,6 +97,14 @@ public class StudentGuardianService {
                 ));
     }
 
+    private Student findStudentForUpdate(Long studentId) {
+        return studentRepository.findByIdForUpdate(studentId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Student not found"
+                ));
+    }
+
     private Guardian findGuardian(Long guardianId) {
         return guardianRepository.findById(guardianId)
                 .orElseThrow(() -> new ResponseStatusException(
@@ -112,6 +120,7 @@ public class StudentGuardianService {
     ) {
         validateSameSchool(student, guardian);
         validateDuplicate(request.studentId(), request.guardianId());
+        validateGuardianLimit(student);
         validatePrimaryContact(request);
     }
 
@@ -141,6 +150,19 @@ public class StudentGuardianService {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "Guardian is already linked to this student"
+            );
+        }
+    }
+
+    private void validateGuardianLimit(Student student) {
+        int maximum = student.getSchool().getGuardianMaxPerStudent();
+        long current = studentGuardianRepository.countByStudent_Id(
+                student.getId()
+        );
+        if (current >= maximum) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Student already reached the maximum number of guardians allowed by the school"
             );
         }
     }

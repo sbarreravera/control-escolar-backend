@@ -30,6 +30,16 @@ public interface GuardianRepository extends JpaRepository<Guardian, Long> {
             String externalReference
     );
 
+    List<Guardian> findAllBySchool_IdAndEmailIgnoreCase(
+            Long schoolId,
+            String email
+    );
+
+    List<Guardian> findAllBySchool_IdAndPhone(
+            Long schoolId,
+            String phone
+    );
+
     /**
      * Finds distinct guardians related to active students in one cycle.
      */

@@ -40,6 +40,7 @@ public class SecurityConfiguration {
                                 "/api/v1/guardian-auth/login",
                                 "/api/v1/guardian-device-enrollments/complete",
                                 "/api/v1/guardian-device-enrollments/status",
+                                "/api/v1/guardian-registration/**",
                                 "/error"
                         ).permitAll()
                         .requestMatchers("/api/v1/schools/**").hasRole("SUPER_ADMIN")
@@ -47,6 +48,8 @@ public class SecurityConfiguration {
                         .requestMatchers("/api/v1/guardian-imports/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/guardian-activations/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/communications/**").hasRole("ADMIN")
+                        .requestMatchers("/api/v1/guardian-registration-settings/**")
+                        .hasAnyRole("ADMIN", "SUPER_ADMIN")
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/v1/guardians/*/device-enrollments"
