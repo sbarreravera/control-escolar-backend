@@ -24,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -110,6 +111,21 @@ public class GuardianRegistrationService {
                 school,
                 enrollmentNumbers
         );
+
+        Guardian existingGuardian = findExistingGuardian(
+                school,
+                request.fullName(),
+                request.phone(),
+                request.email()
+        );
+        if (existingGuardian != null) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Guardian account already exists in this school"
+            );
+        }
+
+        validateGuardianCapacity(school, students);
 
         Guardian guardian = new Guardian();
         guardian.setSchool(school);
@@ -242,7 +258,8 @@ public class GuardianRegistrationService {
                     )
                     .orElseThrow(() -> new ResponseStatusException(
                             HttpStatus.NOT_FOUND,
-                            "Student enrollment number was not found in this school"
+                            "Student enrollment number " + enrollmentNumber
+                                    + " was not found in this school"
                     ));
 
             if (!Boolean.TRUE.equals(student.getActive())) {
@@ -251,7 +268,61 @@ public class GuardianRegistrationService {
                         "Student is not active"
                 );
             }
+            byEnrollment.put(enrollmentNumber, student);
+        }
 
+        return enrollmentNumbers.stream()
+                .map(byEnrollment::get)
+                .toList();
+    }
+
+    private Guardian findExistingGuardian(
+            School school,
+            String fullName,
+            String phone,
+            String email
+    ) {
+        Map<Long, Guardian> candidates = new LinkedHashMap<>();
+        String normalizedEmail = normalizeEmail(email);
+        String normalizedPhone = trimNullable(phone);
+
+        if (normalizedEmail != null) {
+            guardianRepository
+                    .findAllBySchool_IdAndEmailIgnoreCase(
+                            school.getId(),
+                            normalizedEmail
+                    )
+                    .forEach(guardian -> candidates.put(
+                            guardian.getId(),
+                            guardian
+                    ));
+        }
+        if (normalizedPhone != null) {
+            guardianRepository
+                    .findAllBySchool_IdAndPhone(
+                            school.getId(),
+                            normalizedPhone
+                    )
+                    .forEach(guardian -> candidates.put(
+                            guardian.getId(),
+                            guardian
+                    ));
+        }
+
+        String requestedName = canonicalPersonName(fullName);
+        return candidates.values().stream()
+                .filter(guardian -> canonicalPersonName(
+                        guardian.getFullName()
+                ).equals(requestedName))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private void validateGuardianCapacity(
+            School school,
+            List<Student> students
+    ) {
+        for (Student student : students) {
             long current = studentGuardianRepository.countByStudent_Id(
                     student.getId()
             );
@@ -261,12 +332,7 @@ public class GuardianRegistrationService {
                         "Student already reached the maximum number of guardians allowed by the school"
                 );
             }
-            byEnrollment.put(enrollmentNumber, student);
         }
-
-        return enrollmentNumbers.stream()
-                .map(byEnrollment::get)
-                .toList();
     }
 
     private String generateGuardianReference(
@@ -377,6 +443,16 @@ public class GuardianRegistrationService {
             return null;
         }
         return value.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String canonicalPersonName(String value) {
+        String normalized = Normalizer.normalize(
+                value == null ? "" : value.trim().replaceAll("\\s+", " "),
+                Normalizer.Form.NFD
+        );
+        return normalized
+                .replaceAll("\\p{M}", "")
+                .toLowerCase(Locale.ROOT);
     }
 
     private ResponseStatusException registrationSchoolNotFound() {
