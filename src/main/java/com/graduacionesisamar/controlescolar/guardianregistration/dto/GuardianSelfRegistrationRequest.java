@@ -12,7 +12,7 @@ public record GuardianSelfRegistrationRequest(
         String schoolCode,
         @NotBlank @Size(max = 150) String fullName,
         @Size(max = 30) String phone,
-        @Email @Size(max = 150) String email,
+        @NotBlank @Email @Size(max = 150) String email,
         @NotBlank @Size(max = 50) String relationship,
         @NotEmpty List<@NotBlank @Size(max = 50) String> studentEnrollmentNumbers,
         @NotBlank @Size(min = 8, max = 72) String password
