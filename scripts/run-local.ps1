@@ -54,6 +54,9 @@ Write-Host "  DB_URL: configurada"
 Write-Host "  DB_USERNAME: configurada"
 Write-Host "  DB_PASSWORD: configurada (valor oculto)"
 Write-Host "  GUARDIAN_COOKIE_SECURE: configurada"
+Write-Host "  MAIL_ENABLED: $env:MAIL_ENABLED"
+Write-Host "  MAIL_USERNAME: $env:MAIL_USERNAME"
+Write-Host "  MAIL_PASSWORD: $(if ([string]::IsNullOrWhiteSpace($env:MAIL_PASSWORD)) { 'NO configurada' } else { 'configurada (valor oculto)' })"
 
 if ($SetupOnly) {
     Write-Host "Abre una terminal nueva para que otras aplicaciones hereden las variables."
