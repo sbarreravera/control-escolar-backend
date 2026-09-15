@@ -115,6 +115,8 @@ public class GuardianRegistrationEmailListener {
                 Por seguridad, tu contraseña no se incluye en este correo.
                 Conserva tu código de escuela y matrícula de tutor para futuros accesos.
                 Si no realizaste este registro, comunícate con la institución.
+
+                Powered by Estudio Digital ISAMAR
                 """.formatted(
                 event.guardianName(),
                 event.schoolName(),
@@ -176,6 +178,11 @@ public class GuardianRegistrationEmailListener {
                       </p>
 
                       <p style="font-size:13px;color:#64748b;">Por seguridad, tu contraseña no se incluye en este correo. Conserva tu código de escuela y matrícula de tutor para futuros accesos. Si no realizaste este registro, comunícate con la institución.</p>
+
+                      <div style="margin-top:30px;padding-top:20px;border-top:1px solid #e5e7eb;text-align:center;">
+                        <p style="margin:0 0 3px;color:#94a3b8;font-size:11px;letter-spacing:.08em;text-transform:uppercase;">Powered by</p>
+                        <p style="margin:0;color:#475569;font-size:13px;">Estudio Digital <strong style="color:#312e81;letter-spacing:.08em;">ISAMAR</strong></p>
+                      </div>
                     </div>
                   </body>
                 </html>
