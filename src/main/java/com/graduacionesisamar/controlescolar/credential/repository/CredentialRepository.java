@@ -3,6 +3,7 @@ package com.graduacionesisamar.controlescolar.credential.repository;
 import com.graduacionesisamar.controlescolar.credential.entity.Credential;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -16,4 +17,6 @@ public interface CredentialRepository
     Optional<Credential> findByStudent_IdAndActiveTrue(Long studentId);
 
     Optional<Credential> findByQrTokenAndActiveTrue(String qrToken);
+
+    List<Credential> findAllByStudent_School_IdAndActiveTrue(Long schoolId);
 }
