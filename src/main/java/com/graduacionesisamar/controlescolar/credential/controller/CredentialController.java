@@ -1,5 +1,6 @@
 package com.graduacionesisamar.controlescolar.credential.controller;
 
+import com.graduacionesisamar.controlescolar.credential.dto.BulkCredentialResponse;
 import com.graduacionesisamar.controlescolar.credential.dto.CredentialResponse;
 import com.graduacionesisamar.controlescolar.credential.service.CredentialService;
 import lombok.RequiredArgsConstructor;
@@ -11,6 +12,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 /**
  * Exposes REST operations for student QR credentials.
@@ -37,6 +40,17 @@ public class CredentialController {
     @GetMapping("/students/{studentId}/credentials/active")
     public CredentialResponse findActive(@PathVariable Long studentId) {
         return credentialService.findActive(studentId);
+    }
+
+    /**
+     * Ensures every active student in one school has an active credential and
+     * returns the complete set for bulk QR generation.
+     */
+    @PostMapping("/schools/{schoolId}/credentials/ensure-active")
+    public List<BulkCredentialResponse> ensureActiveForSchool(
+            @PathVariable Long schoolId
+    ) {
+        return credentialService.ensureActiveForSchool(schoolId);
     }
 
     /**
