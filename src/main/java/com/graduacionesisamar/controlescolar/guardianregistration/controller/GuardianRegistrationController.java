@@ -4,9 +4,11 @@ import com.graduacionesisamar.controlescolar.guardianregistration.dto.GuardianRe
 import com.graduacionesisamar.controlescolar.guardianregistration.dto.GuardianRegistrationSchoolResponse;
 import com.graduacionesisamar.controlescolar.guardianregistration.dto.GuardianSelfRegistrationRequest;
 import com.graduacionesisamar.controlescolar.guardianregistration.dto.GuardianSelfRegistrationResponse;
+import com.graduacionesisamar.controlescolar.guardianregistration.event.GuardianRegistrationCompletedEvent;
 import com.graduacionesisamar.controlescolar.guardianregistration.service.GuardianRegistrationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -24,6 +26,7 @@ import java.util.List;
 public class GuardianRegistrationController {
 
     private final GuardianRegistrationService guardianRegistrationService;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     @GetMapping("/schools")
     public List<GuardianRegistrationSchoolResponse> listSchools() {
@@ -42,6 +45,27 @@ public class GuardianRegistrationController {
     public GuardianSelfRegistrationResponse register(
             @Valid @RequestBody GuardianSelfRegistrationRequest request
     ) {
-        return guardianRegistrationService.register(request);
+        GuardianSelfRegistrationResponse response =
+                guardianRegistrationService.register(request);
+
+        applicationEventPublisher.publishEvent(
+                new GuardianRegistrationCompletedEvent(
+                        request.email().trim(),
+                        request.fullName().trim(),
+                        response.guardianReference(),
+                        response.username(),
+                        trimNullable(request.phone()),
+                        request.relationship().trim(),
+                        response.schoolName(),
+                        response.schoolCode(),
+                        response.studentEnrollmentNumbers()
+                )
+        );
+
+        return response;
+    }
+
+    private String trimNullable(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 }
