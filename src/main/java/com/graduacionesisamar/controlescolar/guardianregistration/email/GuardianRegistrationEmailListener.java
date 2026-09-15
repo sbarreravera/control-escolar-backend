@@ -96,12 +96,16 @@ public class GuardianRegistrationEmailListener {
 
                 Tu registro como tutor en %s fue completado correctamente.
 
+                Datos de acceso
+                Código de escuela: %s
+                Matrícula de tutor / usuario: %s
+                Contraseña: la que estableciste durante tu registro
+
                 Datos registrados
                 Nombre: %s
                 Correo: %s
                 Teléfono: %s
                 Parentesco: %s
-                Matrícula de tutor / usuario: %s
 
                 Alumnos asociados
                 %s
@@ -109,15 +113,17 @@ public class GuardianRegistrationEmailListener {
                 %s
 
                 Por seguridad, tu contraseña no se incluye en este correo.
+                Conserva tu código de escuela y matrícula de tutor para futuros accesos.
                 Si no realizaste este registro, comunícate con la institución.
                 """.formatted(
                 event.guardianName(),
                 event.schoolName(),
+                event.schoolCode(),
+                event.username(),
                 event.guardianName(),
                 event.recipientEmail(),
                 hasText(event.phone()) ? event.phone() : "No capturado",
                 event.relationship(),
-                event.username(),
                 students.toString().stripTrailing(),
                 buildLoginUrl(event)
         );
@@ -148,12 +154,18 @@ public class GuardianRegistrationEmailListener {
                       <p>Hola, <strong>%s</strong>.</p>
                       <p>Tu registro como tutor en <strong>%s</strong> fue completado correctamente.</p>
 
+                      <div style="margin:24px 0;padding:18px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:10px;">
+                        <p style="margin:0 0 12px;color:#3730a3;font-size:14px;font-weight:700;">DATOS DE ACCESO</p>
+                        <p style="margin:0 0 8px;"><strong>Código de escuela:</strong> %s</p>
+                        <p style="margin:0 0 8px;"><strong>Matrícula de tutor / usuario:</strong> %s</p>
+                        <p style="margin:0;"><strong>Contraseña:</strong> la que estableciste durante tu registro</p>
+                      </div>
+
                       <div style="margin:24px 0;padding:18px;background:#f8fafc;border-radius:10px;">
                         <p style="margin:0 0 8px;"><strong>Nombre:</strong> %s</p>
                         <p style="margin:0 0 8px;"><strong>Correo:</strong> %s</p>
                         <p style="margin:0 0 8px;"><strong>Teléfono:</strong> %s</p>
-                        <p style="margin:0 0 8px;"><strong>Parentesco:</strong> %s</p>
-                        <p style="margin:0;"><strong>Matrícula de tutor / usuario:</strong> %s</p>
+                        <p style="margin:0;"><strong>Parentesco:</strong> %s</p>
                       </div>
 
                       <h2 style="font-size:18px;margin-bottom:8px;">Alumnos asociados</h2>
@@ -163,18 +175,19 @@ public class GuardianRegistrationEmailListener {
                         <a href="%s" style="display:inline-block;background:#4f46e5;color:#ffffff;text-decoration:none;padding:12px 18px;border-radius:8px;font-weight:700;">Entrar al portal de tutores</a>
                       </p>
 
-                      <p style="font-size:13px;color:#64748b;">Por seguridad, tu contraseña no se incluye en este correo. Si no realizaste este registro, comunícate con la institución.</p>
+                      <p style="font-size:13px;color:#64748b;">Por seguridad, tu contraseña no se incluye en este correo. Conserva tu código de escuela y matrícula de tutor para futuros accesos. Si no realizaste este registro, comunícate con la institución.</p>
                     </div>
                   </body>
                 </html>
                 """.formatted(
                 escape(event.guardianName()),
                 escape(event.schoolName()),
+                escape(event.schoolCode()),
+                escape(event.username()),
                 escape(event.guardianName()),
                 escape(event.recipientEmail()),
                 phone,
                 escape(event.relationship()),
-                escape(event.username()),
                 students,
                 loginUrl
         );
