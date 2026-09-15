@@ -5,20 +5,20 @@ import jakarta.mail.internet.MimeMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.event.EventListener;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.event.TransactionPhase;
-import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.web.util.HtmlUtils;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
 /**
- * Sends guardian registration confirmations only after the database commit.
- * Mail delivery failures are logged and never roll back an already-created
- * guardian account.
+ * Sends guardian registration confirmations after the registration service
+ * returns successfully. The controller publishes the event only after the
+ * transactional service call has committed. Mail delivery failures are logged
+ * and never affect the already-created guardian account.
  */
 @Slf4j
 @Component
@@ -46,7 +46,7 @@ public class GuardianRegistrationEmailListener {
         this.portalLoginUrl = portalLoginUrl;
     }
 
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @EventListener
     public void sendConfirmation(
             GuardianRegistrationCompletedEvent event
     ) {
@@ -85,12 +85,9 @@ public class GuardianRegistrationEmailListener {
             GuardianRegistrationCompletedEvent event
     ) {
         StringBuilder students = new StringBuilder();
-        for (GuardianRegistrationCompletedEvent.StudentSummary student
-                : event.students()) {
-            students.append("- ")
-                    .append(student.fullName())
-                    .append(" — ")
-                    .append(student.enrollmentNumber())
+        for (String enrollmentNumber : event.studentEnrollmentNumbers()) {
+            students.append("- Matrícula ")
+                    .append(enrollmentNumber)
                     .append(System.lineSeparator());
         }
 
@@ -130,13 +127,10 @@ public class GuardianRegistrationEmailListener {
             GuardianRegistrationCompletedEvent event
     ) {
         StringBuilder students = new StringBuilder();
-        for (GuardianRegistrationCompletedEvent.StudentSummary student
-                : event.students()) {
-            students.append("<li><strong>")
-                    .append(escape(student.fullName()))
-                    .append("</strong> — ")
-                    .append(escape(student.enrollmentNumber()))
-                    .append("</li>");
+        for (String enrollmentNumber : event.studentEnrollmentNumbers()) {
+            students.append("<li>Matrícula <strong>")
+                    .append(escape(enrollmentNumber))
+                    .append("</strong></li>");
         }
 
         String phone = hasText(event.phone())
