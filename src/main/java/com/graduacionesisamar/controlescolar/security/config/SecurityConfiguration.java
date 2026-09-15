@@ -43,6 +43,10 @@ public class SecurityConfiguration {
                                 "/api/v1/guardian-registration/**",
                                 "/error"
                         ).permitAll()
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/v1/schools/*/credentials/ensure-active"
+                        ).hasAnyRole("ADMIN", "OPERATOR", "SUPER_ADMIN")
                         .requestMatchers("/api/v1/schools/**").hasRole("SUPER_ADMIN")
                         .requestMatchers("/api/v1/student-imports/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/guardian-imports/**").hasRole("ADMIN")
