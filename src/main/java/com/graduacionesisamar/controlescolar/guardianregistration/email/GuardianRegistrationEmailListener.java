@@ -54,7 +54,7 @@ public class GuardianRegistrationEmailListener {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(
                     message,
-                    false,
+                    true,
                     StandardCharsets.UTF_8.name()
             );
 
