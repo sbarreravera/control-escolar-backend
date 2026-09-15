@@ -1,8 +1,11 @@
 package com.graduacionesisamar.controlescolar.credential.service;
 
+import com.graduacionesisamar.controlescolar.credential.dto.BulkCredentialResponse;
 import com.graduacionesisamar.controlescolar.credential.dto.CredentialResponse;
 import com.graduacionesisamar.controlescolar.credential.entity.Credential;
 import com.graduacionesisamar.controlescolar.credential.repository.CredentialRepository;
+import com.graduacionesisamar.controlescolar.school.entity.School;
+import com.graduacionesisamar.controlescolar.security.service.SchoolAccessService;
 import com.graduacionesisamar.controlescolar.student.entity.Student;
 import com.graduacionesisamar.controlescolar.student.repository.StudentRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -14,6 +17,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -24,11 +28,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-
-import com.graduacionesisamar.controlescolar.school.entity.School;
-import com.graduacionesisamar.controlescolar.security.service.SchoolAccessService;
 
 /**
  * Verifies the business rules for student QR credentials.
@@ -37,6 +39,7 @@ import com.graduacionesisamar.controlescolar.security.service.SchoolAccessServic
 class CredentialServiceTest {
 
     private static final Long STUDENT_ID = 1L;
+    private static final Long SCHOOL_ID = 1L;
 
     @Mock
     private CredentialRepository credentialRepository;
@@ -55,13 +58,16 @@ class CredentialServiceTest {
     @BeforeEach
     void setUp() {
         School school = new School();
-        school.setId(1L);
+        school.setId(SCHOOL_ID);
 
         student = new Student();
         student.setId(STUDENT_ID);
         student.setSchool(school);
+        student.setEnrollmentNumber("A001");
+        student.setFirstName("Samuel");
+        student.setLastName("Barrera Vera");
         student.setActive(true);
-}
+    }
 
     @Test
     void createReturnsActiveCredentialWithSecureToken() {
@@ -96,6 +102,51 @@ class CredentialServiceTest {
 
         assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
         verify(credentialRepository, never()).save(any());
+    }
+
+    @Test
+    void ensureActiveForSchoolPreservesExistingAndCreatesMissingCredentials() {
+        Student secondStudent = new Student();
+        secondStudent.setId(2L);
+        secondStudent.setSchool(student.getSchool());
+        secondStudent.setEnrollmentNumber("A002");
+        secondStudent.setFirstName("Scarlett");
+        secondStudent.setLastName("Vera López");
+        secondStudent.setActive(true);
+
+        Credential existing = buildActiveCredential(
+                30L,
+                "existing-token"
+        );
+
+        when(studentRepository
+                .findAllBySchool_IdAndActiveTrueOrderByLastNameAscFirstNameAsc(
+                        SCHOOL_ID
+                ))
+                .thenReturn(List.of(student, secondStudent));
+        when(credentialRepository
+                .findAllByStudent_School_IdAndActiveTrue(SCHOOL_ID))
+                .thenReturn(List.of(existing));
+        when(credentialRepository.save(any(Credential.class)))
+                .thenAnswer(invocation -> {
+                    Credential credential = invocation.getArgument(0);
+                    credential.setId(31L);
+                    credential.beforeInsert();
+                    return credential;
+                });
+
+        List<BulkCredentialResponse> responses =
+                credentialService.ensureActiveForSchool(SCHOOL_ID);
+
+        assertEquals(2, responses.size());
+        assertEquals("existing-token", responses.getFirst().qrToken());
+        assertFalse(responses.getFirst().created());
+        assertEquals("A002", responses.get(1).enrollmentNumber());
+        assertTrue(responses.get(1).created());
+        assertTrue(responses.get(1).qrToken()
+                .matches("^[A-Za-z0-9_-]{43}$"));
+        verify(schoolAccessService).requireAccessToSchool(SCHOOL_ID);
+        verify(credentialRepository, times(1)).save(any(Credential.class));
     }
 
     @Test
