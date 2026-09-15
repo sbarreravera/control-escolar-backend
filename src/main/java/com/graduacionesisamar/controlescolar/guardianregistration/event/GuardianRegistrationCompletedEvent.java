@@ -14,12 +14,6 @@ public record GuardianRegistrationCompletedEvent(
         String relationship,
         String schoolName,
         String schoolCode,
-        List<StudentSummary> students
+        List<String> studentEnrollmentNumbers
 ) {
-
-    public record StudentSummary(
-            String enrollmentNumber,
-            String fullName
-    ) {
-    }
 }
