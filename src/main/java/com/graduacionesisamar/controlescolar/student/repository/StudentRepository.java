@@ -34,6 +34,10 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
             Long schoolId
     );
 
+    List<Student> findAllBySchool_IdAndActiveTrueOrderByLastNameAscFirstNameAsc(
+            Long schoolId
+    );
+
     @Query("""
             SELECT student
             FROM Student student
