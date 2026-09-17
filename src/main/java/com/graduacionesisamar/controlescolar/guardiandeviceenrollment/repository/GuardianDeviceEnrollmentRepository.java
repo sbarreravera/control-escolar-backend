@@ -3,6 +3,8 @@ package com.graduacionesisamar.controlescolar
 
 import com.graduacionesisamar.controlescolar
         .guardiandeviceenrollment.entity.GuardianDeviceEnrollment;
+import com.graduacionesisamar.controlescolar
+        .guardiandeviceenrollment.entity.GuardianEnrollmentPurpose;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.EntityGraph;
