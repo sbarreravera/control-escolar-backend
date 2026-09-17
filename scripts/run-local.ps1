@@ -49,6 +49,10 @@ else {
     Set-Item -Path "Env:DB_PASSWORD" -Value $databasePassword
 }
 
+if ([string]::IsNullOrWhiteSpace($env:MAIL_PORTAL_PASSWORD_RESET_URL)) {
+    Set-Item -Path "Env:MAIL_PORTAL_PASSWORD_RESET_URL" -Value "http://localhost:4200/#/guardian/reset-password"
+}
+
 Write-Host "Configuración local lista:"
 Write-Host "  DB_URL: configurada"
 Write-Host "  DB_USERNAME: configurada"
@@ -57,6 +61,7 @@ Write-Host "  GUARDIAN_COOKIE_SECURE: configurada"
 Write-Host "  MAIL_ENABLED: $env:MAIL_ENABLED"
 Write-Host "  MAIL_USERNAME: $env:MAIL_USERNAME"
 Write-Host "  MAIL_PASSWORD: $(if ([string]::IsNullOrWhiteSpace($env:MAIL_PASSWORD)) { 'NO configurada' } else { 'configurada (valor oculto)' })"
+Write-Host "  MAIL_PORTAL_PASSWORD_RESET_URL: $env:MAIL_PORTAL_PASSWORD_RESET_URL"
 
 if ($SetupOnly) {
     Write-Host "Abre una terminal nueva para que otras aplicaciones hereden las variables."
