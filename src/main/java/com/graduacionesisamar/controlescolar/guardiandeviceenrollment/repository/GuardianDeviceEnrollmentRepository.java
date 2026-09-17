@@ -62,7 +62,7 @@ public interface GuardianDeviceEnrollmentRepository
     Optional<GuardianDeviceEnrollment>
     findFirstByGuardian_IdAndPurposeAndUsedAtIsNullAndRevokedAtIsNullOrderByCreatedAtDesc(
             Long guardianId,
-            com.graduacionesisamar.controlescolar.guardiandeviceenrollment.entity.GuardianEnrollmentPurpose purpose
+            GuardianEnrollmentPurpose purpose
     );
 
     List<GuardianDeviceEnrollment>
