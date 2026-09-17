@@ -59,6 +59,12 @@ public interface GuardianDeviceEnrollmentRepository
     List<GuardianDeviceEnrollment>
     findAllByGuardian_IdInOrderByCreatedAtDesc(List<Long> guardianIds);
 
+    Optional<GuardianDeviceEnrollment>
+    findFirstByGuardian_IdAndPurposeAndUsedAtIsNullAndRevokedAtIsNullOrderByCreatedAtDesc(
+            Long guardianId,
+            com.graduacionesisamar.controlescolar.guardiandeviceenrollment.entity.GuardianEnrollmentPurpose purpose
+    );
+
     List<GuardianDeviceEnrollment>
     findAllByGuardian_School_IdOrderByCreatedAtDesc(Long schoolId);
 }
