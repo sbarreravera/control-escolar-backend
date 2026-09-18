@@ -64,6 +64,7 @@ if ($ResetMailPassword -or [string]::IsNullOrWhiteSpace($mailPassword)) {
     $secureMailPassword = Read-Host "Contraseña de aplicación de Gmail" -AsSecureString
     $mailCredential = [System.Management.Automation.PSCredential]::new("gmail-app-password", $secureMailPassword)
     $mailPassword = $mailCredential.GetNetworkCredential().Password
+    $mailPassword = ($mailPassword -replace '\s', '')
 
     if ([string]::IsNullOrWhiteSpace($mailPassword)) {
         throw "MAIL_PASSWORD no puede quedar vacía."
