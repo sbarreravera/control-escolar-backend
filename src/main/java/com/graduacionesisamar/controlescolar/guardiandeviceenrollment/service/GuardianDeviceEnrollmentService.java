@@ -37,6 +37,7 @@ import java.util.Base64;
 import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -51,6 +52,10 @@ public class GuardianDeviceEnrollmentService {
     private static final int TOKEN_BYTES = 32;
     private static final Duration INVITATION_DURATION =
             Duration.ofDays(7);
+    private static final Duration SELF_SERVICE_PASSWORD_RESET_DURATION =
+            Duration.ofHours(1);
+    private static final Duration PASSWORD_RESET_REQUEST_COOLDOWN =
+            Duration.ofMinutes(5);
 
     private final GuardianDeviceEnrollmentRepository enrollmentRepository;
     private final GuardianRepository guardianRepository;
@@ -118,6 +123,50 @@ public class GuardianDeviceEnrollmentService {
             CreateGuardianInvitationsRequest request
     ) {
         return createBatch(request, GuardianEnrollmentPurpose.PASSWORD_RESET);
+    }
+
+    /**
+     * Creates a short-lived one-time reset link requested by the guardian.
+     * Repeated requests inside the cooldown window are ignored.
+     */
+    public Optional<GuardianInvitationResponse> createSelfServicePasswordReset(
+            Guardian guardian,
+            GuardianAccount account
+    ) {
+        validateActive(guardian);
+
+        if (!guardian.getId().equals(account.getGuardian().getId())
+                || !Boolean.TRUE.equals(account.getActive())
+                || !account.isActivated()) {
+            return Optional.empty();
+        }
+
+        OffsetDateTime now = OffsetDateTime.now();
+        boolean recentlyRequested = enrollmentRepository
+                .findFirstByGuardian_IdAndPurposeAndUsedAtIsNullAndRevokedAtIsNullOrderByCreatedAtDesc(
+                        guardian.getId(),
+                        GuardianEnrollmentPurpose.PASSWORD_RESET
+                )
+                .filter(invitation -> invitation.getCreatedAt() != null)
+                .filter(invitation -> invitation.getExpiresAt().isAfter(now))
+                .filter(invitation -> invitation.getCreatedAt().isAfter(
+                        now.minus(PASSWORD_RESET_REQUEST_COOLDOWN)
+                ))
+                .isPresent();
+
+        if (recentlyRequested) {
+            return Optional.empty();
+        }
+
+        revokePreviousInvitations(List.of(guardian.getId()), now);
+
+        return Optional.of(createInvitation(
+                guardian,
+                account,
+                UUID.randomUUID(),
+                now.plus(SELF_SERVICE_PASSWORD_RESET_DURATION),
+                GuardianEnrollmentPurpose.PASSWORD_RESET
+        ));
     }
 
     private GuardianInvitationBatchResponse createBatch(
@@ -211,6 +260,11 @@ public class GuardianDeviceEnrollmentService {
                 == GuardianEnrollmentPurpose.PASSWORD_RESET) {
             guardianSessionService.revokeAll(guardian.getId());
             guardianDeviceService.deactivateAll(guardian.getId());
+            revokeOtherInvitations(
+                    guardian.getId(),
+                    enrollment.getId(),
+                    now
+            );
         }
 
         if (passwordRequired) {
@@ -368,6 +422,25 @@ public class GuardianDeviceEnrollmentService {
                 invitation -> invitation.setRevokedAt(revokedAt)
         );
 
+        enrollmentRepository.saveAll(invitations);
+    }
+
+    private void revokeOtherInvitations(
+            Long guardianId,
+            Long currentInvitationId,
+            OffsetDateTime revokedAt
+    ) {
+        List<GuardianDeviceEnrollment> invitations = enrollmentRepository
+                .findAllByGuardian_IdAndUsedAtIsNullAndRevokedAtIsNull(
+                        guardianId
+                )
+                .stream()
+                .filter(invitation -> !invitation.getId().equals(
+                        currentInvitationId
+                ))
+                .toList();
+
+        invitations.forEach(invitation -> invitation.setRevokedAt(revokedAt));
         enrollmentRepository.saveAll(invitations);
     }
 

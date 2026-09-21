@@ -1,21 +1,21 @@
-package com.graduacionesisamar.controlescolar.guardianregistration.email;
+package com.graduacionesisamar.controlescolar.guardianpasswordreset.email;
 
-import com.graduacionesisamar.controlescolar.guardianregistration.event.GuardianRegistrationCompletedEvent;
+import com.graduacionesisamar.controlescolar.guardianpasswordreset.event.GuardianPasswordResetRequestedEvent;
 import jakarta.mail.Multipart;
 import jakarta.mail.internet.MimeMessage;
 import org.junit.jupiter.api.Test;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 
-import java.util.List;
+import java.time.OffsetDateTime;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-class GuardianRegistrationEmailListenerTest {
+class GuardianPasswordResetEmailListenerTest {
 
     @Test
-    void sendsMultipartAlternativeMessageForPlainTextAndHtml() throws Exception {
+    void sendsMultipartResetMessage() throws Exception {
         AtomicReference<MimeMessage> sentMessage = new AtomicReference<>();
         JavaMailSenderImpl mailSender = new JavaMailSenderImpl() {
             @Override
@@ -24,25 +24,22 @@ class GuardianRegistrationEmailListenerTest {
             }
         };
 
-        GuardianRegistrationEmailListener listener =
-                new GuardianRegistrationEmailListener(
+        GuardianPasswordResetEmailListener listener =
+                new GuardianPasswordResetEmailListener(
                         mailSender,
                         "controlescolar.isamar@gmail.com",
                         "Control Escolar | ISAMAR",
-                        "http://localhost:4200/#/guardian/login",
-                        "https://drive.google.com/file/d/1d1iBZ9VNF-2skuBd5tIAqwiYUhqZUVJ-/view?usp=sharing"
+                        "http://localhost:4200/#/guardian/reset-password"
                 );
 
-        listener.sendConfirmation(new GuardianRegistrationCompletedEvent(
+        listener.sendResetLink(new GuardianPasswordResetRequestedEvent(
                 "tutor@example.com",
                 "Tutor Prueba",
-                "TUTOR-100",
-                "TUTOR-100",
-                "7710000000",
-                "Madre",
-                "Colegio San Felipe de Jesús",
-                "CSFJ",
-                List.of("A001")
+                "Colegio de Prueba",
+                "ESC-001",
+                "TUTOR-001",
+                "reset-token",
+                OffsetDateTime.now().plusHours(1)
         ));
 
         MimeMessage message = sentMessage.get();

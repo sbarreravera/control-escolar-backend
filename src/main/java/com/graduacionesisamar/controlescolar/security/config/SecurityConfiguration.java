@@ -38,6 +38,7 @@ public class SecurityConfiguration {
                                 "/api/v1/auth/csrf",
                                 "/api/v1/auth/login",
                                 "/api/v1/guardian-auth/login",
+                                "/api/v1/guardian-auth/password-reset/request",
                                 "/api/v1/guardian-device-enrollments/complete",
                                 "/api/v1/guardian-device-enrollments/status",
                                 "/api/v1/guardian-registration/**",

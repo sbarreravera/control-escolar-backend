@@ -33,17 +33,21 @@ public class GuardianRegistrationEmailListener {
     private final String fromAddress;
     private final String fromName;
     private final String portalLoginUrl;
+    private final String iosNotificationGuideUrl;
 
     public GuardianRegistrationEmailListener(
             JavaMailSender mailSender,
             @Value("${app.mail.from-address}") String fromAddress,
             @Value("${app.mail.from-name}") String fromName,
-            @Value("${app.mail.portal-login-url}") String portalLoginUrl
+            @Value("${app.mail.portal-login-url}") String portalLoginUrl,
+            @Value("${app.mail.ios-notification-guide-url}")
+            String iosNotificationGuideUrl
     ) {
         this.mailSender = mailSender;
         this.fromAddress = fromAddress;
         this.fromName = fromName;
         this.portalLoginUrl = portalLoginUrl;
+        this.iosNotificationGuideUrl = iosNotificationGuideUrl;
     }
 
     @EventListener
@@ -112,6 +116,11 @@ public class GuardianRegistrationEmailListener {
                 Acceso al portal:
                 %s
 
+                ¿Usas iPhone o iPad?
+                Para recibir notificaciones de entradas, salidas y avisos de la escuela,
+                sigue esta guía paso a paso:
+                %s
+
                 Por seguridad, tu contraseña no se incluye en este correo.
                 Conserva tu código de escuela y matrícula de tutor para futuros accesos.
                 Si no realizaste este registro, comunícate con la institución.
@@ -127,7 +136,8 @@ public class GuardianRegistrationEmailListener {
                 hasText(event.phone()) ? event.phone() : "No capturado",
                 event.relationship(),
                 students.toString().stripTrailing(),
-                buildLoginUrl(event)
+                buildLoginUrl(event),
+                iosNotificationGuideUrl
         );
     }
 
@@ -145,6 +155,7 @@ public class GuardianRegistrationEmailListener {
                 ? escape(event.phone())
                 : "No capturado";
         String loginUrl = escape(buildLoginUrl(event));
+        String guideUrl = escape(iosNotificationGuideUrl);
 
         return """
                 <!doctype html>
@@ -177,6 +188,12 @@ public class GuardianRegistrationEmailListener {
                         <a href="%s" style="display:inline-block;background:#4f46e5;color:#ffffff;text-decoration:none;padding:12px 18px;border-radius:8px;font-weight:700;">Entrar al portal de tutores</a>
                       </p>
 
+                      <div style="margin:24px 0;padding:18px;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;">
+                        <p style="margin:0 0 8px;color:#9a3412;font-size:14px;font-weight:700;">¿USAS IPHONE O IPAD?</p>
+                        <p style="margin:0 0 14px;color:#7c2d12;">Para recibir notificaciones de entradas, salidas y avisos de la escuela, sigue la guía paso a paso.</p>
+                        <a href="%s" style="display:inline-block;color:#3730a3;font-weight:700;text-decoration:underline;">Ver guía para activar notificaciones</a>
+                      </div>
+
                       <p style="font-size:13px;color:#64748b;">Por seguridad, tu contraseña no se incluye en este correo. Conserva tu código de escuela y matrícula de tutor para futuros accesos. Si no realizaste este registro, comunícate con la institución.</p>
 
                       <div style="margin-top:30px;padding-top:20px;border-top:1px solid #e5e7eb;text-align:center;">
@@ -196,7 +213,8 @@ public class GuardianRegistrationEmailListener {
                 phone,
                 escape(event.relationship()),
                 students,
-                loginUrl
+                loginUrl,
+                guideUrl
         );
     }
 
