@@ -29,7 +29,8 @@ class GuardianRegistrationEmailListenerTest {
                         mailSender,
                         "controlescolar.isamar@gmail.com",
                         "Control Escolar | ISAMAR",
-                        "http://localhost:4200/#/guardian/login"
+                        "http://localhost:4200/#/guardian/login",
+                        "https://drive.google.com/file/d/1d1iBZ9VNF-2skuBd5tIAqwiYUhqZUVJ-/view?usp=sharing"
                 );
 
         listener.sendConfirmation(new GuardianRegistrationCompletedEvent(
