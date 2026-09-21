@@ -15,7 +15,7 @@ $databaseUrl = "jdbc:postgresql://localhost:5432/control_escolar"
 $databaseUsername = "sambarve"
 $guardianCookieSecure = "false"
 $mailEnabled = "true"
-$mailUsername = "controlescolar.isamar@gmail.com"
+$mailUsername = "notificaciones.isamar@gmail.com"
 $mailPortalLoginUrl = "http://localhost:4200/#/guardian/login"
 $mailPortalPasswordResetUrl = "http://localhost:4200/#/guardian/reset-password"
 
