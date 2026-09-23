@@ -49,20 +49,20 @@ public class SecurityConfiguration {
                                 "/api/v1/schools/*/credentials/ensure-active"
                         ).hasAnyRole("ADMIN", "OPERATOR", "SUPER_ADMIN")
                         .requestMatchers("/api/v1/schools/**").hasRole("SUPER_ADMIN")
-                        .requestMatchers("/api/v1/student-imports/**").hasRole("ADMIN")
-                        .requestMatchers("/api/v1/guardian-imports/**").hasRole("ADMIN")
-                        .requestMatchers("/api/v1/guardian-activations/**").hasRole("ADMIN")
-                        .requestMatchers("/api/v1/communications/**").hasRole("ADMIN")
+                        .requestMatchers("/api/v1/student-imports/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        .requestMatchers("/api/v1/guardian-imports/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        .requestMatchers("/api/v1/guardian-activations/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        .requestMatchers("/api/v1/communications/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
                         .requestMatchers("/api/v1/guardian-registration-settings/**")
                         .hasAnyRole("ADMIN", "SUPER_ADMIN")
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/v1/guardians/*/device-enrollments"
-                        ).hasRole("ADMIN")
+                        ).hasAnyRole("ADMIN", "SUPER_ADMIN")
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/v1/guardians/*/deletion-impact"
-                        ).hasRole("ADMIN")
+                        ).hasAnyRole("ADMIN", "SUPER_ADMIN")
                         .requestMatchers(
                                 HttpMethod.DELETE,
                                 "/api/v1/guardians/*"
