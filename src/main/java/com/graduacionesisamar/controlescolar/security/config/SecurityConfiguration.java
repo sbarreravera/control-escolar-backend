@@ -66,7 +66,7 @@ public class SecurityConfiguration {
                         .requestMatchers(
                                 HttpMethod.DELETE,
                                 "/api/v1/guardians/*"
-                        ).hasRole("ADMIN")
+                        ).hasAnyRole("ADMIN", "SUPER_ADMIN")
                         .requestMatchers("/api/v1/guardian/**").hasRole("GUARDIAN")
                         .anyRequest().authenticated()
                 )
