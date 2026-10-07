@@ -6,6 +6,7 @@ import com.graduacionesisamar.controlescolar.appuser.repository.AppUserRepositor
 import com.graduacionesisamar.controlescolar.school.entity.School;
 import com.graduacionesisamar.controlescolar.school.repository.SchoolRepository;
 import com.graduacionesisamar.controlescolar.schooluser.dto.CreateSchoolUserRequest;
+import com.graduacionesisamar.controlescolar.schooluser.dto.RestoreSchoolUserRequest;
 import com.graduacionesisamar.controlescolar.schooluser.dto.SchoolModuleResponse;
 import com.graduacionesisamar.controlescolar.schooluser.dto.SchoolUserResponse;
 import com.graduacionesisamar.controlescolar.schooluser.dto.UpdateSchoolUserRequest;
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.OffsetDateTime;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -49,13 +51,33 @@ public class SchoolUserService {
     }
 
     @Transactional(readOnly = true)
-    public List<SchoolUserResponse> findAllBySchool(Long schoolId) {
+    public List<SchoolUserResponse> findAllBySchool(
+            Long schoolId,
+            boolean archived,
+            String search
+    ) {
         schoolAccessService.requireAccessToSchool(schoolId);
         findSchool(schoolId);
 
-        return appUserRepository
-                .findAllBySchool_IdOrderByRoleAscFullNameAsc(schoolId)
-                .stream()
+        List<AppUser> users = archived
+                ? appUserRepository
+                .findAllBySchool_IdAndArchivedAtIsNotNullOrderByArchivedAtDescFullNameAsc(
+                        schoolId
+                )
+                : appUserRepository
+                .findAllBySchool_IdAndArchivedAtIsNullOrderByRoleAscFullNameAsc(
+                        schoolId
+                );
+
+        String normalizedSearch = search == null
+                ? ""
+                : search.trim().toLowerCase(Locale.ROOT);
+
+        return users.stream()
+                .filter(user -> matchesSearch(
+                        user,
+                        normalizedSearch
+                ))
                 .map(this::toResponse)
                 .toList();
     }
@@ -103,21 +125,12 @@ public class SchoolUserService {
     ) {
         AppUser user = findUser(userId);
 
-        if (user.getSchool() == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.NOT_FOUND,
-                    "School user not found"
-            );
-        }
+        requireEditableUser(user);
 
-        schoolAccessService.requireAccessToSchool(
-                user.getSchool().getId()
-        );
-
-        if (user.getRole() != AppUserRole.OPERATOR) {
+        if (user.getArchivedAt() != null) {
             throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "The primary school administrator cannot be edited here"
+                    HttpStatus.CONFLICT,
+                    "Archived users must be restored before editing"
             );
         }
 
@@ -149,6 +162,99 @@ public class SchoolUserService {
         user.getModulePermissions().addAll(moduleKeys);
 
         return toResponse(appUserRepository.save(user));
+    }
+
+    @Transactional
+    public SchoolUserResponse archive(Long userId) {
+        AppUser user = findUser(userId);
+
+        requireEditableUser(user);
+
+        if (user.getArchivedAt() != null) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "School user is already archived"
+            );
+        }
+
+        AppUser archivedBy = schoolAccessService.getCurrentUser();
+
+        user.setActive(false);
+        user.setArchivedAt(OffsetDateTime.now());
+        user.setArchivedBy(archivedBy);
+
+        return toResponse(appUserRepository.save(user));
+    }
+
+    @Transactional
+    public SchoolUserResponse restore(
+            Long userId,
+            RestoreSchoolUserRequest request
+    ) {
+        AppUser user = findUser(userId);
+
+        requireEditableUser(user);
+
+        if (user.getArchivedAt() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "School user is not archived"
+            );
+        }
+
+        School school = user.getSchool();
+
+        if (!Boolean.TRUE.equals(school.getActive())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "School is inactive"
+            );
+        }
+
+        user.setPasswordHash(
+                passwordEncoder.encode(request.password())
+        );
+        user.setActive(true);
+        user.setArchivedAt(null);
+        user.setArchivedBy(null);
+
+        return toResponse(appUserRepository.save(user));
+    }
+
+    private void requireEditableUser(AppUser user) {
+        if (user.getSchool() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "School user not found"
+            );
+        }
+
+        schoolAccessService.requireAccessToSchool(
+                user.getSchool().getId()
+        );
+
+        if (user.getRole() != AppUserRole.OPERATOR) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "The primary school administrator cannot be archived or edited here"
+            );
+        }
+    }
+
+    private boolean matchesSearch(
+            AppUser user,
+            String normalizedSearch
+    ) {
+        if (normalizedSearch.isBlank()) {
+            return true;
+        }
+
+        return user.getFullName()
+                .toLowerCase(Locale.ROOT)
+                .contains(normalizedSearch)
+                || user.getEmail()
+                .toLowerCase(Locale.ROOT)
+                .contains(normalizedSearch);
     }
 
     private Set<String> validateModuleKeys(Collection<String> values) {
@@ -193,13 +299,17 @@ public class SchoolUserService {
         List<String> moduleKeys =
                 user.getRole() == AppUserRole.ADMIN
                         ? moduleCatalogService.findAll()
-                                .stream()
-                                .map(module -> module.key())
-                                .toList()
+                        .stream()
+                        .map(module -> module.key())
+                        .toList()
                         : user.getModulePermissions()
-                                .stream()
-                                .sorted()
-                                .toList();
+                        .stream()
+                        .sorted()
+                        .toList();
+
+        AppUser archivedBy = user.getArchivedBy();
+        boolean archived = user.getArchivedAt() != null;
+        boolean configurable = user.getRole() == AppUserRole.OPERATOR;
 
         return new SchoolUserResponse(
                 user.getId(),
@@ -211,7 +321,12 @@ public class SchoolUserService {
                 user.getRole(),
                 Boolean.TRUE.equals(user.getActive()),
                 moduleKeys,
-                user.getRole() == AppUserRole.OPERATOR,
+                configurable && !archived,
+                configurable && !archived,
+                configurable && archived,
+                user.getArchivedAt(),
+                archivedBy == null ? null : archivedBy.getId(),
+                archivedBy == null ? null : archivedBy.getFullName(),
                 user.getCreatedAt(),
                 user.getUpdatedAt()
         );
