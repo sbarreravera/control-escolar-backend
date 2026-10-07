@@ -7,6 +7,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.OffsetDateTime;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 @Getter
 @Setter
@@ -38,6 +40,14 @@ public class AppUser {
 
     @Column(nullable = false)
     private Boolean active = true;
+
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(
+            name = "app_user_permissions",
+            joinColumns = @JoinColumn(name = "user_id")
+    )
+    @Column(name = "module_key", nullable = false, length = 100)
+    private Set<String> modulePermissions = new LinkedHashSet<>();
 
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;

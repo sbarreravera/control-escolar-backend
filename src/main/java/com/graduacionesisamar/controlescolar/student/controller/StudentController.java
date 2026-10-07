@@ -1,5 +1,6 @@
 package com.graduacionesisamar.controlescolar.student.controller;
 
+import com.graduacionesisamar.controlescolar.security.module.SchoolModule;
 import com.graduacionesisamar.controlescolar.student.dto.CreateStudentRequest;
 import com.graduacionesisamar.controlescolar.student.dto.StudentResponse;
 import com.graduacionesisamar.controlescolar.student.dto.StudentPageResponse;
@@ -19,6 +20,13 @@ import java.util.List;
  * Exposes REST operations for student management.
  */
 @RestController
+@SchoolModule(
+        key = "STUDENTS",
+        name = "Alumnos",
+        description = "Consultar, registrar y actualizar alumnos.",
+        defaultGranted = false,
+        order = 20
+)
 @RequestMapping("/api/v1/students")
 @RequiredArgsConstructor
 @Validated

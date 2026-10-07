@@ -1,5 +1,6 @@
 package com.graduacionesisamar.controlescolar.guardianimport.controller;
 
+import com.graduacionesisamar.controlescolar.security.module.SchoolModule;
 import com.graduacionesisamar.controlescolar.guardianimport.dto.GuardianImportResultResponse;
 import com.graduacionesisamar.controlescolar.guardianimport.dto.GuardianImportTemplate;
 import com.graduacionesisamar.controlescolar.guardianimport.dto.GuardianImportValidationResponse;
@@ -23,6 +24,13 @@ import java.nio.charset.StandardCharsets;
  * Exposes the official guardian and relationship import workflow.
  */
 @RestController
+@SchoolModule(
+        key = "GUARDIANS",
+        name = "Tutores",
+        description = "Consultar, registrar, actualizar y relacionar tutores con alumnos.",
+        defaultGranted = false,
+        order = 40
+)
 @RequestMapping("/api/v1/guardian-imports")
 @RequiredArgsConstructor
 public class GuardianImportController {

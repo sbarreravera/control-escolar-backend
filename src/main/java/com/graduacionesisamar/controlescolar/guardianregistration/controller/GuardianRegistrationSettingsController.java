@@ -1,5 +1,6 @@
 package com.graduacionesisamar.controlescolar.guardianregistration.controller;
 
+import com.graduacionesisamar.controlescolar.security.module.SchoolModule;
 import com.graduacionesisamar.controlescolar.guardianregistration.dto.GuardianRegistrationSettingsResponse;
 import com.graduacionesisamar.controlescolar.guardianregistration.dto.UpdateGuardianRegistrationSettingsRequest;
 import com.graduacionesisamar.controlescolar.guardianregistration.service.GuardianRegistrationService;
@@ -14,6 +15,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
+@SchoolModule(
+        key = "GUARDIAN_REGISTRATION",
+        name = "Autoregistro de tutores",
+        description = "Configurar el enlace y las reglas de autoregistro de padres y tutores.",
+        defaultGranted = false,
+        order = 60
+)
 @RequestMapping("/api/v1/guardian-registration-settings")
 @RequiredArgsConstructor
 public class GuardianRegistrationSettingsController {

@@ -19,6 +19,8 @@ public record AccessEventResponse(
         OffsetDateTime occurredAt,
         String deviceName,
         String notes,
+        Long recordedByUserId,
+        String recordedByUserName,
         Integer notificationsQueued
 ) {
 }

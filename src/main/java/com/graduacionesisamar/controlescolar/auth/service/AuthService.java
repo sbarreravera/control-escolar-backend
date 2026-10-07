@@ -9,12 +9,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import com.graduacionesisamar.controlescolar.school.entity.School;
+import com.graduacionesisamar.controlescolar.appuser.entity.AppUserRole;
+import com.graduacionesisamar.controlescolar.security.module.SchoolModuleCatalogService;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class AuthService {
 
     private final AppUserRepository appUserRepository;
+    private final SchoolModuleCatalogService moduleCatalogService;
 
     @Transactional(readOnly = true)
     public AuthenticatedUserResponse getAuthenticatedUser(
@@ -29,13 +34,26 @@ public class AuthService {
 
         School school = appUser.getSchool();
 
+        List<String> moduleKeys =
+                appUser.getRole() == AppUserRole.ADMIN
+                        || appUser.getRole() == AppUserRole.SUPER_ADMIN
+                        ? moduleCatalogService.findAll()
+                                .stream()
+                                .map(module -> module.key())
+                                .toList()
+                        : appUser.getModulePermissions()
+                                .stream()
+                                .sorted()
+                                .toList();
+
         return new AuthenticatedUserResponse(
                 appUser.getId(),
                 school == null ? null : school.getId(),
                 school == null ? null : school.getName(),
                 appUser.getFullName(),
                 appUser.getEmail(),
-                appUser.getRole()
+                appUser.getRole(),
+                moduleKeys
         );
     }
 }

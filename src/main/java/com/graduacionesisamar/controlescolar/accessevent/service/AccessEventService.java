@@ -5,6 +5,7 @@ import com.graduacionesisamar.controlescolar.accessevent.dto.ScanAccessEventRequ
 import com.graduacionesisamar.controlescolar.accessevent.entity.AccessEvent;
 import com.graduacionesisamar.controlescolar.accessevent.entity.CaptureMethod;
 import com.graduacionesisamar.controlescolar.accessevent.repository.AccessEventRepository;
+import com.graduacionesisamar.controlescolar.appuser.entity.AppUser;
 import com.graduacionesisamar.controlescolar.credential.entity.Credential;
 import com.graduacionesisamar.controlescolar.credential.repository.CredentialRepository;
 import com.graduacionesisamar.controlescolar.notification.service.NotificationLogService;
@@ -38,16 +39,27 @@ public class AccessEventService {
                 student.getSchool().getId()
         );
 
+        AppUser recordedBy = schoolAccessService.getCurrentUser();
+
         validateCredentialExpiration(credential);
         validateActiveStudent(student);
 
-        AccessEvent event = buildEvent(request, credential, student);
+        AccessEvent event = buildEvent(
+                request,
+                credential,
+                student,
+                recordedBy
+        );
         AccessEvent savedEvent = accessEventRepository.save(event);
 
         int notificationsQueued =
                 notificationLogService.queueForEvent(savedEvent);
 
-        return toResponse(savedEvent, notificationsQueued);
+        return toResponse(
+                savedEvent,
+                recordedBy,
+                notificationsQueued
+        );
     }
 
     private Credential findCredential(String qrToken) {
@@ -91,13 +103,15 @@ public class AccessEventService {
     private AccessEvent buildEvent(
             ScanAccessEventRequest request,
             Credential credential,
-            Student student
+            Student student,
+            AppUser recordedBy
     ) {
         AccessEvent event = new AccessEvent();
         event.setStudent(student);
         event.setCredential(credential);
         event.setEventType(request.eventType());
         event.setCaptureMethod(request.captureMethod());
+        event.setRecordedBy(recordedBy.getId());
         event.setDeviceName(trimNullable(request.deviceName()));
         event.setNotes(trimNullable(request.notes()));
         return event;
@@ -113,6 +127,7 @@ public class AccessEventService {
 
     private AccessEventResponse toResponse(
             AccessEvent event,
+            AppUser recordedBy,
             int notificationsQueued
     ) {
         Student student = event.getStudent();
@@ -128,6 +143,8 @@ public class AccessEventService {
                 event.getOccurredAt(),
                 event.getDeviceName(),
                 event.getNotes(),
+                recordedBy.getId(),
+                recordedBy.getFullName(),
                 notificationsQueued
         );
     }

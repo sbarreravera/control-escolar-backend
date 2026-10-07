@@ -1,5 +1,6 @@
 package com.graduacionesisamar.controlescolar.accessevent.controller;
 
+import com.graduacionesisamar.controlescolar.security.module.SchoolModule;
 import com.graduacionesisamar.controlescolar.accessevent.dto.AccessEventResponse;
 import com.graduacionesisamar.controlescolar.accessevent.dto.ScanAccessEventRequest;
 import com.graduacionesisamar.controlescolar.accessevent.service.AccessEventService;
@@ -16,6 +17,13 @@ import org.springframework.web.bind.annotation.RestController;
  * Exposes REST operations for student access events.
  */
 @RestController
+@SchoolModule(
+        key = "ACCESS_SCANNER",
+        name = "Registrar entrada y salida",
+        description = "Escanear credenciales QR para registrar entradas y salidas de alumnos.",
+        defaultGranted = true,
+        order = 15
+)
 @RequestMapping("/api/v1/access-events")
 @RequiredArgsConstructor
 public class AccessEventController {

@@ -1,5 +1,6 @@
 package com.graduacionesisamar.controlescolar.guardiandevice.controller;
 
+import com.graduacionesisamar.controlescolar.security.module.SchoolModule;
 import com.graduacionesisamar.controlescolar.guardiandevice.dto.GuardianDeviceResponse;
 import com.graduacionesisamar.controlescolar.guardiandevice.dto.RegisterGuardianDeviceRequest;
 import com.graduacionesisamar.controlescolar.guardiandevice.service.GuardianDeviceService;
@@ -21,6 +22,13 @@ import java.util.List;
  * Exposes REST operations for guardian device management.
  */
 @RestController
+@SchoolModule(
+        key = "GUARDIAN_ACCESS",
+        name = "Accesos de tutores",
+        description = "Administrar activaciones, sesiones e invitaciones del portal de tutores.",
+        defaultGranted = false,
+        order = 50
+)
 @RequestMapping("/api/v1/guardians/{guardianId}/devices")
 @RequiredArgsConstructor
 public class GuardianDeviceController {

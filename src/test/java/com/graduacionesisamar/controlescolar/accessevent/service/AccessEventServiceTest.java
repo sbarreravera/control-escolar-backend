@@ -6,6 +6,7 @@ import com.graduacionesisamar.controlescolar.accessevent.entity.AccessEvent;
 import com.graduacionesisamar.controlescolar.accessevent.entity.AccessEventType;
 import com.graduacionesisamar.controlescolar.accessevent.entity.CaptureMethod;
 import com.graduacionesisamar.controlescolar.accessevent.repository.AccessEventRepository;
+import com.graduacionesisamar.controlescolar.appuser.entity.AppUser;
 import com.graduacionesisamar.controlescolar.credential.entity.Credential;
 import com.graduacionesisamar.controlescolar.credential.repository.CredentialRepository;
 import com.graduacionesisamar.controlescolar.notification.service.NotificationLogService;
@@ -85,6 +86,8 @@ class AccessEventServiceTest {
         assertEquals(CaptureMethod.QR_CAMERA, response.captureMethod());
         assertEquals("Entrada principal", response.deviceName());
         assertNotNull(response.occurredAt());
+        assertEquals(50L, response.recordedByUserId());
+        assertEquals("Prefectura Principal", response.recordedByUserName());
         assertEquals(1, response.notificationsQueued());
     }
 
@@ -229,6 +232,13 @@ class AccessEventServiceTest {
     }
 
     private void stubSavedEvent(Long eventId) {
+        AppUser currentUser = new AppUser();
+        currentUser.setId(50L);
+        currentUser.setFullName("Prefectura Principal");
+
+        when(schoolAccessService.getCurrentUser())
+                .thenReturn(currentUser);
+
         when(notificationLogService.queueForEvent(
                 any(AccessEvent.class)
         )).thenReturn(1);

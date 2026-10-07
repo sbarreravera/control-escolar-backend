@@ -1,5 +1,6 @@
 package com.graduacionesisamar.controlescolar.credential.controller;
 
+import com.graduacionesisamar.controlescolar.security.module.SchoolModule;
 import com.graduacionesisamar.controlescolar.credential.dto.BulkCredentialResponse;
 import com.graduacionesisamar.controlescolar.credential.dto.CredentialResponse;
 import com.graduacionesisamar.controlescolar.credential.service.CredentialService;
@@ -19,6 +20,13 @@ import java.util.List;
  * Exposes REST operations for student QR credentials.
  */
 @RestController
+@SchoolModule(
+        key = "CREDENTIALS",
+        name = "Credenciales QR",
+        description = "Generar, consultar, inhabilitar y regenerar credenciales QR.",
+        defaultGranted = false,
+        order = 30
+)
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
 public class CredentialController {

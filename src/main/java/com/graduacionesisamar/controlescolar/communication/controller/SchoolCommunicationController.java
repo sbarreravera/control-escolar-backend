@@ -1,5 +1,6 @@
 package com.graduacionesisamar.controlescolar.communication.controller;
 
+import com.graduacionesisamar.controlescolar.security.module.SchoolModule;
 import com.graduacionesisamar.controlescolar.communication.dto.*;
 import com.graduacionesisamar.controlescolar.communication.service.SchoolCommunicationService;
 import jakarta.validation.Valid;
@@ -12,6 +13,13 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
+@SchoolModule(
+        key = "COMMUNICATIONS",
+        name = "Avisos y comunicaciones",
+        description = "Crear, programar y consultar avisos dirigidos a padres y tutores.",
+        defaultGranted = false,
+        order = 70
+)
 @RequestMapping("/api/v1/communications")
 @RequiredArgsConstructor
 @Validated

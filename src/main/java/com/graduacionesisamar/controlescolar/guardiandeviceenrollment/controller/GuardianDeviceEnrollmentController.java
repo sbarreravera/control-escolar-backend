@@ -1,5 +1,6 @@
 package com.graduacionesisamar.controlescolar.guardiandeviceenrollment.controller;
 
+import com.graduacionesisamar.controlescolar.security.module.SchoolModule;
 import com.graduacionesisamar.controlescolar.guardiandeviceenrollment.dto.CompleteGuardianDeviceEnrollmentRequest;
 import com.graduacionesisamar.controlescolar.guardiandeviceenrollment.dto.CompleteGuardianDeviceEnrollmentResponse;
 import com.graduacionesisamar.controlescolar.guardiandeviceenrollment.dto.CreateGuardianDeviceEnrollmentResponse;
@@ -44,6 +45,13 @@ public class GuardianDeviceEnrollmentController {
      */
     @PostMapping(
             "/guardians/{guardianId}/device-enrollments"
+    )
+    @SchoolModule(
+            key = "GUARDIAN_ACCESS",
+            name = "Accesos de tutores",
+            description = "Administrar activaciones, sesiones e invitaciones del portal de tutores.",
+            defaultGranted = false,
+            order = 50
     )
     @ResponseStatus(HttpStatus.CREATED)
     public CreateGuardianDeviceEnrollmentResponse create(
