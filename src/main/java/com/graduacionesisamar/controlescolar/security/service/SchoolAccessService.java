@@ -29,7 +29,7 @@ public class SchoolAccessService {
      */
     @Transactional(readOnly = true)
     public void requireAccessToSchool(Long schoolId) {
-        AppUser currentUser = findCurrentUser();
+        AppUser currentUser = getCurrentUser();
 
         if (currentUser.getRole() == AppUserRole.SUPER_ADMIN) {
             return;
@@ -47,7 +47,8 @@ public class SchoolAccessService {
         }
     }
 
-    private AppUser findCurrentUser() {
+    @Transactional(readOnly = true)
+    public AppUser getCurrentUser() {
         Authentication authentication = SecurityContextHolder
                 .getContext()
                 .getAuthentication();
