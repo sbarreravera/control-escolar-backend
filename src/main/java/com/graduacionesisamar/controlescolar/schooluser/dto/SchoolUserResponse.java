@@ -14,6 +14,11 @@ public record SchoolUserResponse(
         boolean active,
         List<String> moduleKeys,
         boolean editable,
+        boolean archivable,
+        boolean restorable,
+        OffsetDateTime archivedAt,
+        Long archivedByUserId,
+        String archivedByUserName,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt
 ) {
