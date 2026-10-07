@@ -32,6 +32,14 @@ public class AuthService {
                         "Authenticated user not found"
                 ));
 
+        if (!Boolean.TRUE.equals(appUser.getActive())
+                || appUser.getArchivedAt() != null) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Authenticated user is inactive"
+            );
+        }
+
         School school = appUser.getSchool();
 
         List<String> moduleKeys =

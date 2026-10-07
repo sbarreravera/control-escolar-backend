@@ -49,6 +49,13 @@ public class AppUser {
     @Column(name = "module_key", nullable = false, length = 100)
     private Set<String> modulePermissions = new LinkedHashSet<>();
 
+    @Column(name = "archived_at")
+    private OffsetDateTime archivedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "archived_by")
+    private AppUser archivedBy;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
