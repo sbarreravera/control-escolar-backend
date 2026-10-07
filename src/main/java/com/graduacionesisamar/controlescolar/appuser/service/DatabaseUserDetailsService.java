@@ -28,7 +28,10 @@ public class DatabaseUserDetailsService implements UserDetailsService {
         return User.withUsername(appUser.getEmail())
                 .password(appUser.getPasswordHash())
                 .roles(appUser.getRole().name())
-                .disabled(!Boolean.TRUE.equals(appUser.getActive()))
+                .disabled(
+                        !Boolean.TRUE.equals(appUser.getActive())
+                                || appUser.getArchivedAt() != null
+                )
                 .build();
     }
 }

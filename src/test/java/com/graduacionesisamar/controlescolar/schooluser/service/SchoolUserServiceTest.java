@@ -3,6 +3,7 @@ package com.graduacionesisamar.controlescolar.schooluser.service;
 import com.graduacionesisamar.controlescolar.appuser.entity.AppUser;
 import com.graduacionesisamar.controlescolar.appuser.entity.AppUserRole;
 import com.graduacionesisamar.controlescolar.appuser.repository.AppUserRepository;
+import com.graduacionesisamar.controlescolar.appuser.service.AppUserSessionService;
 import com.graduacionesisamar.controlescolar.school.entity.School;
 import com.graduacionesisamar.controlescolar.school.repository.SchoolRepository;
 import com.graduacionesisamar.controlescolar.schooluser.dto.CreateSchoolUserRequest;
@@ -51,6 +52,9 @@ class SchoolUserServiceTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    @Mock
+    private AppUserSessionService appUserSessionService;
+
     private SchoolUserService service;
     private School school;
 
@@ -61,7 +65,8 @@ class SchoolUserServiceTest {
                 schoolRepository,
                 schoolAccessService,
                 moduleCatalogService,
-                passwordEncoder
+                passwordEncoder,
+                appUserSessionService
         );
 
         school = new School();
@@ -175,6 +180,10 @@ class SchoolUserServiceTest {
         assertEquals(admin, user.getArchivedBy());
 
         verify(schoolAccessService).requireAccessToSchool(1L);
+        verify(appUserSessionService)
+                .invalidateAllForPrincipal(
+                        "prefecto@escuela.mx"
+                );
     }
 
     @Test
