@@ -1,5 +1,6 @@
 package com.graduacionesisamar.controlescolar.academiccycle.controller;
 
+import com.graduacionesisamar.controlescolar.security.module.SchoolModule;
 import com.graduacionesisamar.controlescolar.academiccycle.dto.AcademicCycleResponse;
 import com.graduacionesisamar.controlescolar.academiccycle.dto.CreateAcademicCycleRequest;
 import com.graduacionesisamar.controlescolar.academiccycle.dto.UpdateAcademicCycleRequest;
@@ -15,6 +16,13 @@ import java.util.List;
  * Exposes REST operations for academic cycle management.
  */
 @RestController
+@SchoolModule(
+        key = "ACADEMIC_STRUCTURE",
+        name = "Administración escolar",
+        description = "Administrar ciclos escolares, grados y grupos.",
+        defaultGranted = false,
+        order = 80
+)
 @RequestMapping("/api/v1/academic-cycles")
 @RequiredArgsConstructor
 public class AcademicCycleController {
