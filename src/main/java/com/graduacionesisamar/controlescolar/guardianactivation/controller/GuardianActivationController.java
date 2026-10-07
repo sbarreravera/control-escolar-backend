@@ -1,5 +1,6 @@
 package com.graduacionesisamar.controlescolar.guardianactivation.controller;
 
+import com.graduacionesisamar.controlescolar.security.module.SchoolModule;
 import com.graduacionesisamar.controlescolar.guardianactivation.dto.CreateGuardianInvitationsRequest;
 import com.graduacionesisamar.controlescolar.guardianactivation.dto.GuardianAccessRevocationResponse;
 import com.graduacionesisamar.controlescolar.guardianactivation.dto.GuardianActivationPageResponse;
@@ -29,6 +30,13 @@ import java.util.List;
  * Administrative guardian activation operations.
  */
 @RestController
+@SchoolModule(
+        key = "GUARDIAN_ACCESS",
+        name = "Accesos de tutores",
+        description = "Administrar activaciones, sesiones e invitaciones del portal de tutores.",
+        defaultGranted = false,
+        order = 50
+)
 @RequestMapping("/api/v1/guardian-activations")
 @RequiredArgsConstructor
 public class GuardianActivationController {
