@@ -63,7 +63,8 @@ public class SchoolAccessService {
                 .findByEmailIgnoreCase(authentication.getName())
                 .orElseThrow(this::unauthorized);
 
-        if (!Boolean.TRUE.equals(currentUser.getActive())) {
+        if (!Boolean.TRUE.equals(currentUser.getActive())
+                || currentUser.getArchivedAt() != null) {
             throw unauthorized();
         }
 
