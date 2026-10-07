@@ -1,5 +1,6 @@
 package com.graduacionesisamar.controlescolar.dashboard.controller;
 
+import com.graduacionesisamar.controlescolar.security.module.SchoolModule;
 import com.graduacionesisamar.controlescolar.dashboard.dto.DashboardSummaryResponse;
 import com.graduacionesisamar.controlescolar.dashboard.service.DashboardService;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +16,13 @@ import java.time.OffsetDateTime;
  * Exposes the school administrator operational dashboard.
  */
 @RestController
+@SchoolModule(
+        key = "DASHBOARD",
+        name = "Inicio y resumen",
+        description = "Consultar el resumen operativo y los movimientos recientes de la escuela.",
+        defaultGranted = false,
+        order = 10
+)
 @RequestMapping("/api/v1/dashboard")
 @RequiredArgsConstructor
 public class DashboardController {
