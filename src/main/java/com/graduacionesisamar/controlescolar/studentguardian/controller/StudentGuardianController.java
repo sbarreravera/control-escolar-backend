@@ -1,5 +1,6 @@
 package com.graduacionesisamar.controlescolar.studentguardian.controller;
 
+import com.graduacionesisamar.controlescolar.security.module.SchoolModule;
 import com.graduacionesisamar.controlescolar.studentguardian.dto.CreateStudentGuardianRequest;
 import com.graduacionesisamar.controlescolar.studentguardian.dto.StudentGuardianResponse;
 import com.graduacionesisamar.controlescolar.studentguardian.service.StudentGuardianService;
@@ -21,6 +22,13 @@ import java.util.List;
  * Exposes REST operations for student-guardian relationships.
  */
 @RestController
+@SchoolModule(
+        key = "GUARDIANS",
+        name = "Tutores",
+        description = "Consultar, registrar, actualizar y relacionar tutores con alumnos.",
+        defaultGranted = false,
+        order = 40
+)
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
 public class StudentGuardianController {
