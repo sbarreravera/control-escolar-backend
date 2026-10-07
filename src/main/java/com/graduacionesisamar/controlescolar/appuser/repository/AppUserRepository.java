@@ -17,7 +17,11 @@ public interface AppUserRepository extends JpaRepository<AppUser, Long> {
             Long id
     );
 
-    List<AppUser> findAllBySchool_IdOrderByRoleAscFullNameAsc(
+    List<AppUser> findAllBySchool_IdAndArchivedAtIsNullOrderByRoleAscFullNameAsc(
+            Long schoolId
+    );
+
+    List<AppUser> findAllBySchool_IdAndArchivedAtIsNotNullOrderByArchivedAtDescFullNameAsc(
             Long schoolId
     );
 }
