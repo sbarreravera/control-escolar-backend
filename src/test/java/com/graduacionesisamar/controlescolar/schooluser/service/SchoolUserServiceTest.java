@@ -6,6 +6,7 @@ import com.graduacionesisamar.controlescolar.appuser.repository.AppUserRepositor
 import com.graduacionesisamar.controlescolar.school.entity.School;
 import com.graduacionesisamar.controlescolar.school.repository.SchoolRepository;
 import com.graduacionesisamar.controlescolar.schooluser.dto.CreateSchoolUserRequest;
+import com.graduacionesisamar.controlescolar.schooluser.dto.RestoreSchoolUserRequest;
 import com.graduacionesisamar.controlescolar.schooluser.dto.SchoolUserResponse;
 import com.graduacionesisamar.controlescolar.security.module.SchoolModuleCatalogService;
 import com.graduacionesisamar.controlescolar.security.service.SchoolAccessService;
@@ -18,10 +19,14 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -104,6 +109,9 @@ class SchoolUserServiceTest {
         );
         assertTrue(response.active());
         assertTrue(response.editable());
+        assertTrue(response.archivable());
+        assertFalse(response.restorable());
+        assertNull(response.archivedAt());
 
         verify(schoolAccessService).requireAccessToSchool(1L);
     }
@@ -135,5 +143,105 @@ class SchoolUserServiceTest {
                 HttpStatus.BAD_REQUEST,
                 exception.getStatusCode()
         );
+    }
+
+    @Test
+    void archiveDisablesOperatorAndKeepsAuditActor() {
+        AppUser user = buildOperator(20L);
+        AppUser admin = new AppUser();
+        admin.setId(10L);
+        admin.setFullName("Directora Principal");
+        admin.setRole(AppUserRole.ADMIN);
+
+        when(appUserRepository.findById(20L))
+                .thenReturn(Optional.of(user));
+        when(schoolAccessService.getCurrentUser())
+                .thenReturn(admin);
+        when(appUserRepository.save(user))
+                .thenReturn(user);
+
+        SchoolUserResponse response = service.archive(20L);
+
+        assertFalse(response.active());
+        assertFalse(response.editable());
+        assertFalse(response.archivable());
+        assertTrue(response.restorable());
+        assertNotNull(response.archivedAt());
+        assertEquals(10L, response.archivedByUserId());
+        assertEquals(
+                "Directora Principal",
+                response.archivedByUserName()
+        );
+        assertEquals(admin, user.getArchivedBy());
+
+        verify(schoolAccessService).requireAccessToSchool(1L);
+    }
+
+    @Test
+    void restoreRequiresNewPasswordAndPreservesPermissions() {
+        AppUser user = buildOperator(20L);
+        user.setActive(false);
+        user.setArchivedAt(OffsetDateTime.now().minusDays(1));
+        user.setArchivedBy(new AppUser());
+
+        when(appUserRepository.findById(20L))
+                .thenReturn(Optional.of(user));
+        when(passwordEncoder.encode("NuevaClave#2026"))
+                .thenReturn("new-hash");
+        when(appUserRepository.save(user))
+                .thenReturn(user);
+
+        SchoolUserResponse response = service.restore(
+                20L,
+                new RestoreSchoolUserRequest("NuevaClave#2026")
+        );
+
+        assertTrue(response.active());
+        assertTrue(response.editable());
+        assertTrue(response.archivable());
+        assertFalse(response.restorable());
+        assertNull(response.archivedAt());
+        assertNull(user.getArchivedBy());
+        assertEquals("new-hash", user.getPasswordHash());
+        assertEquals(
+                Set.of("ACCESS_SCANNER"),
+                Set.copyOf(response.moduleKeys())
+        );
+
+        verify(schoolAccessService).requireAccessToSchool(1L);
+    }
+
+    @Test
+    void primaryAdministratorCannotBeArchived() {
+        AppUser user = new AppUser();
+        user.setId(5L);
+        user.setSchool(school);
+        user.setRole(AppUserRole.ADMIN);
+
+        when(appUserRepository.findById(5L))
+                .thenReturn(Optional.of(user));
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> service.archive(5L)
+        );
+
+        assertEquals(
+                HttpStatus.FORBIDDEN,
+                exception.getStatusCode()
+        );
+    }
+
+    private AppUser buildOperator(Long id) {
+        AppUser user = new AppUser();
+        user.setId(id);
+        user.setSchool(school);
+        user.setFullName("Prefecto Uno");
+        user.setEmail("prefecto@escuela.mx");
+        user.setPasswordHash("old-hash");
+        user.setRole(AppUserRole.OPERATOR);
+        user.setActive(true);
+        user.getModulePermissions().add("ACCESS_SCANNER");
+        return user;
     }
 }
