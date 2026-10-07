@@ -3,6 +3,7 @@ package com.graduacionesisamar.controlescolar.schooluser.service;
 import com.graduacionesisamar.controlescolar.appuser.entity.AppUser;
 import com.graduacionesisamar.controlescolar.appuser.entity.AppUserRole;
 import com.graduacionesisamar.controlescolar.appuser.repository.AppUserRepository;
+import com.graduacionesisamar.controlescolar.appuser.service.AppUserSessionService;
 import com.graduacionesisamar.controlescolar.school.entity.School;
 import com.graduacionesisamar.controlescolar.school.repository.SchoolRepository;
 import com.graduacionesisamar.controlescolar.schooluser.dto.CreateSchoolUserRequest;
@@ -35,6 +36,7 @@ public class SchoolUserService {
     private final SchoolAccessService schoolAccessService;
     private final SchoolModuleCatalogService moduleCatalogService;
     private final PasswordEncoder passwordEncoder;
+    private final AppUserSessionService appUserSessionService;
 
     @Transactional(readOnly = true)
     public List<SchoolModuleResponse> findAvailableModules() {
@@ -134,6 +136,11 @@ public class SchoolUserService {
             );
         }
 
+        String previousEmail = user.getEmail();
+        boolean passwordChanged =
+                request.password() != null
+                        && !request.password().isBlank();
+
         String normalizedEmail = normalizeEmail(request.email());
 
         if (appUserRepository.existsByEmailIgnoreCaseAndIdNot(
@@ -152,7 +159,7 @@ public class SchoolUserService {
         user.setEmail(normalizedEmail);
         user.setActive(request.active());
 
-        if (request.password() != null && !request.password().isBlank()) {
+        if (passwordChanged) {
             user.setPasswordHash(
                     passwordEncoder.encode(request.password())
             );
@@ -161,7 +168,24 @@ public class SchoolUserService {
         user.getModulePermissions().clear();
         user.getModulePermissions().addAll(moduleKeys);
 
-        return toResponse(appUserRepository.save(user));
+        AppUser savedUser = appUserRepository.save(user);
+
+        boolean emailChanged =
+                !previousEmail.equalsIgnoreCase(normalizedEmail);
+
+        if (!request.active() || passwordChanged || emailChanged) {
+            appUserSessionService.invalidateAllForPrincipal(
+                    previousEmail
+            );
+
+            if (emailChanged) {
+                appUserSessionService.invalidateAllForPrincipal(
+                        normalizedEmail
+                );
+            }
+        }
+
+        return toResponse(savedUser);
     }
 
     @Transactional
@@ -183,7 +207,13 @@ public class SchoolUserService {
         user.setArchivedAt(OffsetDateTime.now());
         user.setArchivedBy(archivedBy);
 
-        return toResponse(appUserRepository.save(user));
+        AppUser savedUser = appUserRepository.save(user);
+
+        appUserSessionService.invalidateAllForPrincipal(
+                user.getEmail()
+        );
+
+        return toResponse(savedUser);
     }
 
     @Transactional
