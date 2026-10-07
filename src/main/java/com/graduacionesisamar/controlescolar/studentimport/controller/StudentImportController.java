@@ -1,5 +1,6 @@
 package com.graduacionesisamar.controlescolar.studentimport.controller;
 
+import com.graduacionesisamar.controlescolar.security.module.SchoolModule;
 import com.graduacionesisamar.controlescolar.studentimport.dto.StudentImportResultResponse;
 import com.graduacionesisamar.controlescolar.studentimport.dto.StudentImportTemplate;
 import com.graduacionesisamar.controlescolar.studentimport.dto.StudentImportValidationResponse;
@@ -23,6 +24,13 @@ import java.nio.charset.StandardCharsets;
  * Exposes the official workbook and the initial student import workflow.
  */
 @RestController
+@SchoolModule(
+        key = "STUDENTS",
+        name = "Alumnos",
+        description = "Consultar, registrar y actualizar alumnos.",
+        defaultGranted = false,
+        order = 20
+)
 @RequestMapping("/api/v1/student-imports")
 @RequiredArgsConstructor
 public class StudentImportController {
