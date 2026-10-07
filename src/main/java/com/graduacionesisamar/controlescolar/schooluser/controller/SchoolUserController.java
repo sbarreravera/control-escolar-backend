@@ -2,6 +2,7 @@ package com.graduacionesisamar.controlescolar.schooluser.controller;
 
 import com.graduacionesisamar.controlescolar.schooluser.dto.CreateSchoolUserRequest;
 import com.graduacionesisamar.controlescolar.schooluser.dto.SchoolModuleResponse;
+import com.graduacionesisamar.controlescolar.schooluser.dto.RestoreSchoolUserRequest;
 import com.graduacionesisamar.controlescolar.schooluser.dto.SchoolUserResponse;
 import com.graduacionesisamar.controlescolar.schooluser.dto.UpdateSchoolUserRequest;
 import com.graduacionesisamar.controlescolar.schooluser.service.SchoolUserService;
@@ -37,9 +38,15 @@ public class SchoolUserController {
 
     @GetMapping
     public List<SchoolUserResponse> findAll(
-            @RequestParam @Positive Long schoolId
+            @RequestParam @Positive Long schoolId,
+            @RequestParam(defaultValue = "false") boolean archived,
+            @RequestParam(defaultValue = "") String search
     ) {
-        return schoolUserService.findAllBySchool(schoolId);
+        return schoolUserService.findAllBySchool(
+                schoolId,
+                archived,
+                search
+        );
     }
 
     @PostMapping
@@ -56,5 +63,20 @@ public class SchoolUserController {
             @Valid @RequestBody UpdateSchoolUserRequest request
     ) {
         return schoolUserService.update(userId, request);
+    }
+
+    @PostMapping("/{userId}/archive")
+    public SchoolUserResponse archive(
+            @PathVariable @Positive Long userId
+    ) {
+        return schoolUserService.archive(userId);
+    }
+
+    @PostMapping("/{userId}/restore")
+    public SchoolUserResponse restore(
+            @PathVariable @Positive Long userId,
+            @Valid @RequestBody RestoreSchoolUserRequest request
+    ) {
+        return schoolUserService.restore(userId, request);
     }
 }
