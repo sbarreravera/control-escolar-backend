@@ -1,5 +1,6 @@
 package com.graduacionesisamar.controlescolar.schoolgroup.controller;
 
+import com.graduacionesisamar.controlescolar.security.module.SchoolModule;
 import com.graduacionesisamar.controlescolar.schoolgroup.dto.CreateSchoolGroupRequest;
 import com.graduacionesisamar.controlescolar.schoolgroup.dto.SchoolGroupResponse;
 import com.graduacionesisamar.controlescolar.schoolgroup.dto.UpdateSchoolGroupRequest;
@@ -15,6 +16,13 @@ import java.util.List;
  * Exposes REST operations for school group management.
  */
 @RestController
+@SchoolModule(
+        key = "ACADEMIC_STRUCTURE",
+        name = "Administración escolar",
+        description = "Administrar ciclos escolares, grados y grupos.",
+        defaultGranted = false,
+        order = 80
+)
 @RequestMapping("/api/v1/school-groups")
 @RequiredArgsConstructor
 public class SchoolGroupController {
