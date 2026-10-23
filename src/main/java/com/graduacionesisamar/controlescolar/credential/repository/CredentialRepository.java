@@ -18,5 +18,8 @@ public interface CredentialRepository
 
     Optional<Credential> findByQrTokenAndActiveTrue(String qrToken);
 
+    /** Incluye inactivas para diagnosticar credenciales reemplazadas. */
+    Optional<Credential> findByQrToken(String qrToken);
+
     List<Credential> findAllByStudent_School_IdAndActiveTrue(Long schoolId);
 }
