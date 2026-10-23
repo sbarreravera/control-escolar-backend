@@ -30,8 +30,8 @@ public class QrTestService {
     @Transactional(readOnly = true)
     public QrTestResponse validate(QrTestRequest request) {
         AppUserRole role = schoolAccessService.getCurrentUser().getRole();
-        if (role != AppUserRole.SUPER_ADMIN) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Super administrator access required");
+        if (role != AppUserRole.ADMIN && role != AppUserRole.SUPER_ADMIN) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Administrator access required");
         }
 
         schoolAccessService.requireAccessToSchool(request.schoolId());

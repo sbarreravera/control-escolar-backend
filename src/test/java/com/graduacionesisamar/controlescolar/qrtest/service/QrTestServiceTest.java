@@ -64,7 +64,7 @@ class QrTestServiceTest {
 
     @Test
     void validCredentialOnlyReadsExistingData() {
-        as(AppUserRole.SUPER_ADMIN);
+        as(AppUserRole.ADMIN);
         when(credentialRepository.findByQrToken(TOKEN))
                 .thenReturn(Optional.of(credential));
 
@@ -83,7 +83,7 @@ class QrTestServiceTest {
 
     @Test
     void detectsExpiredCredentialWithoutChangingIt() {
-        as(AppUserRole.SUPER_ADMIN);
+        as(AppUserRole.ADMIN);
         OffsetDateTime expiry = OffsetDateTime.now().minusDays(1);
         credential.setExpiresAt(expiry);
         when(credentialRepository.findByQrToken(TOKEN))
@@ -99,7 +99,7 @@ class QrTestServiceTest {
 
     @Test
     void detectsDeactivatedCredential() {
-        as(AppUserRole.SUPER_ADMIN);
+        as(AppUserRole.ADMIN);
         credential.setActive(false);
         when(credentialRepository.findByQrToken(TOKEN))
                 .thenReturn(Optional.of(credential));
@@ -109,22 +109,12 @@ class QrTestServiceTest {
 
     @Test
     void detectsInactiveStudent() {
-        as(AppUserRole.SUPER_ADMIN);
+        as(AppUserRole.ADMIN);
         student.setActive(false);
         when(credentialRepository.findByQrToken(TOKEN))
                 .thenReturn(Optional.of(credential));
         assertEquals("INACTIVE_STUDENT",
                 service.validate(new QrTestRequest(TOKEN, 44L)).status());
-    }
-
-    @Test
-    void rejectsSchoolAdministratorBeforeLookingUpToken() {
-        as(AppUserRole.ADMIN);
-        ResponseStatusException error = assertThrows(
-                ResponseStatusException.class,
-                () -> service.validate(new QrTestRequest(TOKEN, 44L)));
-        assertEquals(HttpStatus.FORBIDDEN, error.getStatusCode());
-        verifyNoInteractions(credentialRepository);
     }
 
     @Test
@@ -139,7 +129,7 @@ class QrTestServiceTest {
 
     @Test
     void rejectsUnknownQr() {
-        as(AppUserRole.SUPER_ADMIN);
+        as(AppUserRole.ADMIN);
         when(credentialRepository.findByQrToken(TOKEN))
                 .thenReturn(Optional.empty());
         ResponseStatusException error = assertThrows(
