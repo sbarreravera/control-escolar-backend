@@ -50,7 +50,7 @@ public class SecurityConfiguration {
                         ).hasAnyRole("ADMIN", "OPERATOR", "SUPER_ADMIN")
                         .requestMatchers("/api/v1/schools/**").hasRole("SUPER_ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/v1/qr-tests/validate")
-                        .hasAnyRole("ADMIN", "SUPER_ADMIN")
+                        .hasRole("SUPER_ADMIN")
                         .requestMatchers("/api/v1/school-users/**")
                         .hasAnyRole("ADMIN", "SUPER_ADMIN")
                         .requestMatchers("/api/v1/guardian/**").hasRole("GUARDIAN")
