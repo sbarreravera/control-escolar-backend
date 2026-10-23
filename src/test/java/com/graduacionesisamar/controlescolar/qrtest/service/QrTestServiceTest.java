@@ -118,6 +118,16 @@ class QrTestServiceTest {
     }
 
     @Test
+    void rejectsSchoolAdministratorBeforeLookingUpToken() {
+        as(AppUserRole.ADMIN);
+        ResponseStatusException error = assertThrows(
+                ResponseStatusException.class,
+                () -> service.validate(new QrTestRequest(TOKEN, 44L)));
+        assertEquals(HttpStatus.FORBIDDEN, error.getStatusCode());
+        verifyNoInteractions(credentialRepository);
+    }
+
+    @Test
     void rejectsOperatorBeforeLookingUpToken() {
         as(AppUserRole.OPERATOR);
         ResponseStatusException error = assertThrows(
