@@ -1,5 +1,8 @@
 package com.graduacionesisamar.controlescolar.accessevent.service;
 
+import com.graduacionesisamar.controlescolar.academiccycle.repository.AcademicCycleRepository;
+import com.graduacionesisamar.controlescolar.schoolgroup.repository.SchoolGroupRepository;
+import com.graduacionesisamar.controlescolar.accessevent.dto.AccessMonitorFilterOptions;
 import com.graduacionesisamar.controlescolar.accessevent.dto.AccessMonitorEventResponse;
 import com.graduacionesisamar.controlescolar.accessevent.dto.AccessMonitorPageResponse;
 import com.graduacionesisamar.controlescolar.accessevent.entity.AccessEvent;
