@@ -37,6 +37,13 @@ public class AccessMonitorController {
 
     private final AccessMonitorService accessMonitorService;
 
+    @GetMapping("/monitor/filters")
+    public AccessMonitorFilterOptions filters(
+            @RequestParam @Positive Long schoolId
+    ) {
+        return accessMonitorService.findFilterOptions(schoolId);
+    }
+
     @GetMapping("/monitor")
     public AccessMonitorPageResponse findPage(
             @RequestParam @Positive Long schoolId,
