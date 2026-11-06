@@ -41,6 +41,34 @@ public class AccessMonitorService {
 
     private final AccessEventRepository accessEventRepository;
     private final SchoolAccessService schoolAccessService;
+    private final AcademicCycleRepository academicCycleRepository;
+    private final SchoolGroupRepository schoolGroupRepository;
+
+    @Transactional(readOnly = true)
+    public AccessMonitorFilterOptions findFilterOptions(Long schoolId) {
+        schoolAccessService.requireAccessToSchool(schoolId);
+
+        var cycles = academicCycleRepository
+                .findAllBySchool_IdOrderByStartDateDesc(schoolId)
+                .stream()
+                .map(cycle -> new AccessMonitorFilterOptions.CycleOption(
+                        cycle.getId(), cycle.getName(),
+                        Boolean.TRUE.equals(cycle.getActive())
+                ))
+                .toList();
+
+        var groups = schoolGroupRepository
+                .findAllByAcademicCycle_School_IdOrderByGradeNameAscGroupNameAsc(schoolId)
+                .stream()
+                .map(group -> new AccessMonitorFilterOptions.GroupOption(
+                        group.getId(), group.getAcademicCycle().getId(),
+                        group.getGradeName(), group.getGroupName(),
+                        Boolean.TRUE.equals(group.getActive())
+                ))
+                .toList();
+
+        return new AccessMonitorFilterOptions(cycles, groups);
+    }
 
     @Transactional(readOnly = true)
     public AccessMonitorPageResponse findPage(
