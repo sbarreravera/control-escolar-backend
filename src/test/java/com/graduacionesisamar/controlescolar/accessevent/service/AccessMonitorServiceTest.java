@@ -1,6 +1,11 @@
 package com.graduacionesisamar.controlescolar.accessevent.service;
 
 import com.graduacionesisamar.controlescolar.accessevent.controller.AccessMonitorController;
+import com.graduacionesisamar.controlescolar.accessevent.dto.AccessMonitorFilterOptions;
+import com.graduacionesisamar.controlescolar.academiccycle.entity.AcademicCycle;
+import com.graduacionesisamar.controlescolar.academiccycle.repository.AcademicCycleRepository;
+import com.graduacionesisamar.controlescolar.schoolgroup.entity.SchoolGroup;
+import com.graduacionesisamar.controlescolar.schoolgroup.repository.SchoolGroupRepository;
 import com.graduacionesisamar.controlescolar.accessevent.dto.AccessMonitorPageResponse;
 import com.graduacionesisamar.controlescolar.accessevent.entity.AccessEvent;
 import com.graduacionesisamar.controlescolar.accessevent.entity.AccessEventType;
@@ -36,6 +41,8 @@ class AccessMonitorServiceTest {
 
     @Mock AccessEventRepository accessEventRepository;
     @Mock SchoolAccessService schoolAccessService;
+    @Mock AcademicCycleRepository academicCycleRepository;
+    @Mock SchoolGroupRepository schoolGroupRepository;
     @InjectMocks AccessMonitorService service;
 
     @Test
@@ -121,6 +128,52 @@ class AccessMonitorServiceTest {
 
         assertEquals(HttpStatus.FORBIDDEN, ex.getStatusCode());
         verifyNoInteractions(accessEventRepository);
+    }
+
+    @Test
+    void returnsOnlyAuthorizedSchoolAcademicFilters() {
+        School school = new School();
+        school.setId(44L);
+
+        AcademicCycle cycle = new AcademicCycle();
+        cycle.setId(20L);
+        cycle.setSchool(school);
+        cycle.setName("2026-2027");
+        cycle.setActive(true);
+
+        SchoolGroup group = new SchoolGroup();
+        group.setId(31L);
+        group.setAcademicCycle(cycle);
+        group.setGradeName("1");
+        group.setGroupName("A");
+        group.setActive(true);
+
+        when(academicCycleRepository.findAllBySchool_IdOrderByStartDateDesc(44L))
+                .thenReturn(List.of(cycle));
+        when(schoolGroupRepository
+                .findAllByAcademicCycle_School_IdOrderByGradeNameAscGroupNameAsc(44L))
+                .thenReturn(List.of(group));
+
+        AccessMonitorFilterOptions result = service.findFilterOptions(44L);
+
+        assertEquals("2026-2027", result.cycles().getFirst().name());
+        assertEquals(20L, result.groups().getFirst().academicCycleId());
+        assertEquals("A", result.groups().getFirst().groupName());
+        verify(schoolAccessService).requireAccessToSchool(44L);
+        verifyNoInteractions(accessEventRepository);
+    }
+
+    @Test
+    void deniesOtherSchoolWhenLoadingFilterOptions() {
+        doThrow(new ResponseStatusException(HttpStatus.FORBIDDEN))
+                .when(schoolAccessService).requireAccessToSchool(999L);
+
+        assertThrows(
+                ResponseStatusException.class,
+                () -> service.findFilterOptions(999L)
+        );
+
+        verifyNoInteractions(academicCycleRepository, schoolGroupRepository);
     }
 
     @Test
