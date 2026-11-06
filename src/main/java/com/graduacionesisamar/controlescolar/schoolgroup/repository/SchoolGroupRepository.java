@@ -28,4 +28,8 @@ public interface SchoolGroupRepository extends JpaRepository<SchoolGroup, Long> 
     List<SchoolGroup> findAllByAcademicCycle_IdOrderByGradeNameAscGroupNameAsc(
             Long academicCycleId
     );
+
+    List<SchoolGroup> findAllByAcademicCycle_School_IdOrderByGradeNameAscGroupNameAsc(
+            Long schoolId
+    );
 }
